@@ -1,13 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { Moon, Sun, Monitor, Bell, Download, Upload, Database } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Moon, Sun, Monitor, Bell, Download, Upload, Database, LogIn, LogOut, User } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/utils/supabase/client"
+import { useRouter } from "next/navigation"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 export function Settings() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light")
@@ -16,6 +19,42 @@ export function Settings() {
     email: false,
     browser: true,
   })
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      setLoading(false)
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      router.push("/auth/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
+
+  const handleSignIn = () => {
+    router.push("/auth/login")
+  }
 
   const applyTheme = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme)
@@ -45,6 +84,53 @@ export function Settings() {
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage your application preferences</p>
       </div>
+
+      {/* Account */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <User className="h-5 w-5" />
+            Account
+          </CardTitle>
+          <CardDescription>Manage your account and authentication</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : user ? (
+            <>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm font-medium text-foreground">{user.email}</span>
+                </div>
+              </div>
+              <Separator />
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                className="w-full bg-transparent"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-muted-foreground">
+                You are not signed in. Sign in to sync your data across devices.
+              </div>
+              <Button
+                onClick={handleSignIn}
+                className="w-full"
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Appearance */}
       <Card>
