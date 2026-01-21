@@ -40,7 +40,6 @@
 - ✅ Email verification flow
 - ✅ Protected routes (middleware redirects to login)
 - ✅ Server-side and client-side Supabase clients
-- ✅ Logout functionality
 
 ## Project Structure
 
@@ -52,8 +51,6 @@
 │   │   ├── callback/       # OAuth callback handler
 │   │   └── verify-email/   # Email verification page
 │   └── page.tsx            # Protected home page
-├── components/
-│   └── LogoutButton.tsx    # Logout component
 ├── utils/
 │   └── supabase/
 │       ├── client.ts       # Client-side Supabase client
