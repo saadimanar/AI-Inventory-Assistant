@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Sidebar } from "./sidebar"
 import { Dashboard } from "./dashboard"
 import { Header } from "./header"
@@ -44,15 +44,37 @@ export function InventoryApp() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null)
 
-  // Force re-render when data changes
-  const [, setUpdateTrigger] = useState(0)
-  const triggerUpdate = useCallback(() => setUpdateTrigger((n) => n + 1), [])
+  // Data state
+  const [items, setItems] = useState<InventoryItem[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [stats, setStats] = useState({ totalItems: 0, totalValue: 0, lowStockItems: 0, totalFolders: 0 })
+  const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Data
-  const items = useMemo(() => getItems(), [])
-  const folders = useMemo(() => getFolders(), [])
-  const stats = useMemo(() => getStats(), [])
-  const lowStockItems = useMemo(() => getLowStockItems(), [])
+  // Load data
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const [itemsData, foldersData, statsData, lowStockData] = await Promise.all([
+        getItems(),
+        getFolders(),
+        getStats(),
+        getLowStockItems(),
+      ])
+      setItems(itemsData)
+      setFolders(foldersData)
+      setStats(statsData)
+      setLowStockItems(lowStockData)
+    } catch (error) {
+      console.error("Error loading data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   // Get displayed items based on current view
   const displayedItems = useMemo(() => {
@@ -61,7 +83,7 @@ export function InventoryApp() {
     if (currentView === "low-stock") {
       result = lowStockItems
     } else if (currentView === "folder" && currentFolderId) {
-      result = getItemsByFolder(currentFolderId)
+      result = items.filter((item) => item.folderId === currentFolderId)
     } else if (currentView === "all-items") {
       result = items
     } else {
@@ -70,7 +92,14 @@ export function InventoryApp() {
 
     // Apply search filter
     if (searchQuery) {
-      result = searchItems(searchQuery).filter((item) => result.some((r) => r.id === item.id))
+      const lowerQuery = searchQuery.toLowerCase()
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(lowerQuery) ||
+          item.description.toLowerCase().includes(lowerQuery) ||
+          item.sku.toLowerCase().includes(lowerQuery) ||
+          item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
+      )
     }
 
     // Apply sorting
@@ -117,28 +146,38 @@ export function InventoryApp() {
     setDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (itemToDelete) {
-      deleteItem(itemToDelete.id)
-      if (selectedItem?.id === itemToDelete.id) {
-        setSelectedItem(null)
+      try {
+        await deleteItem(itemToDelete.id)
+        if (selectedItem?.id === itemToDelete.id) {
+          setSelectedItem(null)
+        }
+        await loadData()
+      } catch (error) {
+        console.error("Error deleting item:", error)
+        alert("Failed to delete item")
       }
-      triggerUpdate()
     }
     setDeleteDialogOpen(false)
     setItemToDelete(null)
   }
 
-  const handleSaveItem = (data: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">) => {
-    if (editingItem) {
-      const updated = updateItem(editingItem.id, data)
-      if (updated && selectedItem?.id === editingItem.id) {
-        setSelectedItem(updated)
+  const handleSaveItem = async (data: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      if (editingItem) {
+        const updated = await updateItem(editingItem.id, data)
+        if (updated && selectedItem?.id === editingItem.id) {
+          setSelectedItem(updated)
+        }
+      } else {
+        await addItem(data)
       }
-    } else {
-      addItem(data)
+      await loadData()
+    } catch (error) {
+      console.error("Error saving item:", error)
+      alert(error instanceof Error ? error.message : "Failed to save item")
     }
-    triggerUpdate()
   }
 
   const handleAddFolder = () => {
@@ -146,13 +185,18 @@ export function InventoryApp() {
     setFolderFormOpen(true)
   }
 
-  const handleSaveFolder = (data: Omit<Folder, "id" | "createdAt" | "itemCount">) => {
-    if (editingFolder) {
-      updateFolder(editingFolder.id, data)
-    } else {
-      addFolder(data)
+  const handleSaveFolder = async (data: Omit<Folder, "id" | "createdAt" | "itemCount">) => {
+    try {
+      if (editingFolder) {
+        await updateFolder(editingFolder.id, data)
+      } else {
+        await addFolder(data)
+      }
+      await loadData()
+    } catch (error) {
+      console.error("Error saving folder:", error)
+      alert(error instanceof Error ? error.message : "Failed to save folder")
     }
-    triggerUpdate()
   }
 
   const handleSelectItem = (item: InventoryItem) => {
@@ -195,6 +239,17 @@ export function InventoryApp() {
   }
 
   const { title, subtitle } = getPageInfo()
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          <p className="text-muted-foreground">Loading inventory...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

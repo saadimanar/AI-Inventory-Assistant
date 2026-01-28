@@ -3,7 +3,7 @@
 import React from "react"
 
 import { useState, useEffect } from "react"
-import { X, Upload, Plus, Trash2 } from "lucide-react"
+import { X, Upload, Plus, Trash2, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import type { InventoryItem, Folder } from "@/lib/inventory-types"
+import { createClient } from "@/utils/supabase/client"
 
 interface ItemFormDialogProps {
   open: boolean
@@ -45,6 +46,9 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
     imageUrl: null as string | null,
   })
   const [tagInput, setTagInput] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     if (item) {
@@ -59,6 +63,8 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
         tags: item.tags,
         imageUrl: item.imageUrl,
       })
+      setImagePreview(item.imageUrl)
+      setImageFile(null)
     } else {
       setFormData({
         name: "",
@@ -71,14 +77,80 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
         tags: [],
         imageUrl: null,
       })
+      setImagePreview(null)
+      setImageFile(null)
     }
     setTagInput("")
   }, [item, open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData)
-    onOpenChange(false)
+    setIsUploading(true)
+
+    try {
+      let finalImageUrl = formData.imageUrl
+
+      // Upload new image if a file was selected
+      if (imageFile) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          throw new Error("User not authenticated")
+        }
+
+        // Generate unique filename
+        const fileExt = imageFile.name.split(".").pop()
+        const fileName = `${user.id}/${item?.id || `temp-${Date.now()}`}/${Date.now()}.${fileExt}`
+        
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(fileName, imageFile, {
+            cacheControl: "3600",
+            upsert: false,
+          })
+
+        if (uploadError) {
+          throw new Error(`Failed to upload image: ${uploadError.message}`)
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("item-images")
+          .getPublicUrl(fileName)
+
+        finalImageUrl = urlData.publicUrl
+
+        // If editing and had an old image, delete it
+        if (item?.imageUrl && item.imageUrl !== finalImageUrl) {
+          try {
+            const oldUrl = new URL(item.imageUrl)
+            const pathParts = oldUrl.pathname.split("/")
+            const pathIndex = pathParts.indexOf("item-images")
+            if (pathIndex !== -1) {
+              const oldImagePath = pathParts.slice(pathIndex + 1).join("/")
+              await supabase.storage.from("item-images").remove([oldImagePath])
+            }
+          } catch (err) {
+            console.error("Error deleting old image:", err)
+            // Don't fail if old image deletion fails
+          }
+        }
+      }
+
+      // Save item with the image URL
+      onSave({
+        ...formData,
+        imageUrl: finalImageUrl,
+      })
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error saving item:", error)
+      alert(error instanceof Error ? error.message : "Failed to save item")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const addTag = () => {
@@ -96,12 +168,20 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setImageFile(file)
+      // Create preview
       const reader = new FileReader()
       reader.onloadend = () => {
-        setFormData({ ...formData, imageUrl: reader.result as string })
+        setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    setFormData({ ...formData, imageUrl: null })
   }
 
   return (
@@ -116,17 +196,17 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
             <Label>Image</Label>
             <div className="flex items-start gap-4">
               <div className="relative h-32 w-32 overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted">
-                {formData.imageUrl ? (
+                {imagePreview ? (
                   <>
                     <img
-                      src={formData.imageUrl || "/placeholder.svg"}
+                      src={imagePreview}
                       alt="Preview"
                       className="h-full w-full object-cover"
                       crossOrigin="anonymous"
                     />
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, imageUrl: null })}
+                      onClick={handleRemoveImage}
                       className="absolute right-1 top-1 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/90"
                     >
                       <X className="h-3 w-3" />
@@ -144,6 +224,11 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 <p className="text-sm text-muted-foreground">
                   Upload a photo of your item. Recommended size: 400x300px
                 </p>
+                {imageFile && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {imageFile.name} ({(imageFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -279,10 +364,19 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isUploading}>
               Cancel
             </Button>
-            <Button type="submit">{item ? "Save Changes" : "Add Item"}</Button>
+            <Button type="submit" disabled={isUploading}>
+              {isUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {item ? "Saving..." : "Adding..."}
+                </>
+              ) : (
+                item ? "Save Changes" : "Add Item"
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>
