@@ -24,6 +24,7 @@ import {
   updateFolder,
   deleteFolder,
   getItemsByFolder,
+  getCurrentUserDisplayName,
 } from "@/lib/inventory-store"
 
 export function InventoryApp() {
@@ -49,22 +50,25 @@ export function InventoryApp() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [stats, setStats] = useState({ totalItems: 0, totalValue: 0, lowStockItems: 0, totalFolders: 0 })
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
+  const [userDisplayName, setUserDisplayName] = useState("User")
   const [isLoading, setIsLoading] = useState(true)
 
   // Load data
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
-      const [itemsData, foldersData, statsData, lowStockData] = await Promise.all([
+      const [itemsData, foldersData, statsData, lowStockData, displayName] = await Promise.all([
         getItems(),
         getFolders(),
         getStats(),
         getLowStockItems(),
+        getCurrentUserDisplayName(),
       ])
       setItems(itemsData)
       setFolders(foldersData)
       setStats(statsData)
       setLowStockItems(lowStockData)
+      setUserDisplayName(displayName)
     } catch (error) {
       console.error("Error loading data:", error)
     } finally {
@@ -273,7 +277,9 @@ export function InventoryApp() {
                 stats={stats}
                 lowStockItems={lowStockItems}
                 recentItems={recentItems}
+                items={items}
                 folders={folders}
+                userDisplayName={userDisplayName}
                 onViewLowStock={() => setCurrentView("low-stock")}
                 onViewAllItems={() => setCurrentView("all-items")}
                 onSelectItem={handleSelectItem}

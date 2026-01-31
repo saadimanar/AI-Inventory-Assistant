@@ -1,7 +1,14 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { Poppins } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  variable: '--font-poppins',
+  weight: ['300', '400', '500', '600', '700'],
+})
 
 export const metadata: Metadata = {
   title: 'Inventory - Business Inventory Management',
@@ -15,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
+      <body className={`${poppins.variable} font-sans antialiased`}>
         {children}
         <Analytics />
       </body>

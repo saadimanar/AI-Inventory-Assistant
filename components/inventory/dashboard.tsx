@@ -1,88 +1,193 @@
 "use client"
 
-import { Package, DollarSign, AlertTriangle, FolderOpen, TrendingUp, ArrowRight } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Package, AlertTriangle, FolderOpen, TrendingUp, ArrowRight, Filter, FileText, Layers } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { InventoryStats, InventoryItem, Folder } from "@/lib/inventory-types"
+
+export type ActivityFilter = "all" | "items" | "folders"
+
+interface ActivityEntry {
+  id: string
+  type: "item" | "folder"
+  action: "created"
+  targetName: string
+  locationName: string
+  date: Date
+}
 
 interface DashboardProps {
   stats: InventoryStats
   lowStockItems: InventoryItem[]
   recentItems: InventoryItem[]
+  items: InventoryItem[]
   folders: Folder[]
+  userDisplayName: string
   onViewLowStock: () => void
   onViewAllItems: () => void
   onSelectItem: (item: InventoryItem) => void
+}
+
+function formatActivityDate(date: Date): string {
+  const d = date.getDate()
+  const m = date.getMonth() + 1
+  const y = date.getFullYear()
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`
+}
+
+function MoneyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="11 12 17 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        fill="currentColor"
+        fillRule="nonzero"
+        d="M12.8 13a.79.79 0 0 0-.8.78v7.78c0 .43.36.77.8.77h14.4a.79.79 0 0 0 .8-.77v-7.78a.79.79 0 0 0-.8-.78H12.8zm1.53 1.56h11.34c.12.33.39.59.73.7v4.8c-.34.13-.6.39-.73.72H14.33a1.18 1.18 0 0 0-.73-.71v-4.8c.34-.12.6-.38.73-.71zm5.67.77a2.37 2.37 0 0 0-2.4 2.34c0 1.28 1.07 2.33 2.4 2.33s2.4-1.04 2.4-2.33a2.37 2.37 0 0 0-2.4-2.34zm-4 1.56c-.44 0-.8.35-.8.78 0 .43.36.77.8.77.44 0 .8-.34.8-.77a.79.79 0 0 0-.8-.78zm8 0c-.44 0-.8.35-.8.78 0 .43.36.77.8.77.44 0 .8-.34.8-.77a.79.79 0 0 0-.8-.78zM12 23.1v1.56h16V23.1H12zm0 2.33V27h16v-1.56H12z"
+      />
+    </svg>
+  )
+}
+
+function SetFoldersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+      <path
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeMiterlimit={10}
+        strokeWidth={1.5}
+        d="M15.86 8.513c.97 0 1.757-.786 1.757-1.756S16.83 5 15.86 5c-.97 0-1.756.787-1.756 1.757 0 .97.786 1.756 1.756 1.756zM20.25 6.756h-2.195M13.662 6.756H4M14.98 19.494c.97 0 1.756-.787 1.756-1.757 0-.97-.786-1.756-1.757-1.756-.97 0-1.756.786-1.756 1.756s.786 1.757 1.756 1.757zM4 17.738h8.784M17.176 17.738h3.074M8.392 14.004c.97 0 1.756-.787 1.756-1.757 0-.97-.786-1.757-1.756-1.757s-1.757.787-1.757 1.757c0 .97.786 1.757 1.757 1.757zM4 12.248h2.196M10.588 12.248h9.662"
+      />
+    </svg>
+  )
 }
 
 export function Dashboard({
   stats,
   lowStockItems,
   recentItems,
+  items,
   folders,
+  userDisplayName,
   onViewLowStock,
   onViewAllItems,
   onSelectItem,
 }: DashboardProps) {
-  const statCards = [
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all")
+
+  const activities = useMemo(() => {
+    const entries: ActivityEntry[] = []
+    items.forEach((item) => {
+      const folder = folders.find((f) => f.id === item.folderId)
+      entries.push({
+        id: `item-${item.id}`,
+        type: "item",
+        action: "created",
+        targetName: item.name,
+        locationName: folder?.name ?? "Items",
+        date: item.createdAt,
+      })
+    })
+    folders.forEach((folder) => {
+      const parent = folder.parentId ? folders.find((f) => f.id === folder.parentId) : null
+      entries.push({
+        id: `folder-${folder.id}`,
+        type: "folder",
+        action: "created",
+        targetName: folder.name,
+        locationName: parent?.name ?? "Items",
+        date: folder.createdAt,
+      })
+    })
+    entries.sort((a, b) => b.date.getTime() - a.date.getTime())
+    return entries
+  }, [items, folders])
+
+  const filteredActivities = useMemo(() => {
+    if (activityFilter === "all") return activities.slice(0, 5)
+    if (activityFilter === "items") return activities.filter((a) => a.type === "item").slice(0, 5)
+    return activities.filter((a) => a.type === "folder").slice(0, 5)
+  }, [activities, activityFilter])
+
+  const summaryCards = [
     {
-      title: "Total Items",
+      title: "Items",
+      value: items.length.toString(),
+      icon: FileText,
+      color: "text-stat-primary",
+      bgColor: "bg-stat-primary/15",
+    },
+    {
+      title: "Folders",
+      value: stats.totalFolders.toString(),
+      icon: FolderOpen,
+      color: "text-stat-folders",
+      bgColor: "bg-stat-folders/15",
+    },
+    {
+      title: "Total Quantity",
       value: stats.totalItems.toLocaleString(),
-      icon: Package,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      icon: Layers,
+      color: "text-stat-quantity",
+      bgColor: "bg-stat-quantity/15",
     },
     {
       title: "Total Value",
-      value: `$${stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: DollarSign,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
-    },
-    {
-      title: "Low Stock Alerts",
-      value: stats.lowStockItems.toString(),
-      icon: AlertTriangle,
-      color: "text-destructive",
-      bgColor: "bg-destructive/10",
-    },
-    {
-      title: "Total Folders",
-      value: stats.totalFolders.toString(),
-      icon: FolderOpen,
-      color: "text-chart-3",
-      bgColor: "bg-chart-3/10",
+      value: `₪${stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      icon: MoneyIcon,
+      color: "text-stat-value",
+      bgColor: "bg-stat-value/15",
     },
   ]
 
   return (
     <div className="space-y-8">
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold text-foreground">{stat.value}</p>
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center justify-between gap-4 border-b border-border bg-background px-4 py-4 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-6">
+        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
+          className="text-foreground border-border hover:bg-secondary hover:text-foreground"
+        >
+          <SetFoldersIcon className="h-5 w-5" />
+          Set Folders
+        </Button>
+      </div>
+      {/* Inventory Summary */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Inventory Summary</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {summaryCards.map((stat) => (
+            <Card key={stat.title} className="border-border shadow-sm">
+              <CardContent className="flex flex-col items-center p-6">
+                <div className="mb-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${stat.bgColor}`}>
+                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
                 </div>
-                <div className={`rounded-xl p-3 ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="mt-1 text-sm font-medium text-muted-foreground">{stat.title}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Low Stock Alert */}
+        {/* Items that need restocking */}
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              Low Stock Alert
+              Items that need restocking
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={onViewLowStock} className="text-primary">
               View All
@@ -92,8 +197,8 @@ export function Dashboard({
           <CardContent>
             {lowStockItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="rounded-full bg-accent/10 p-3">
-                  <TrendingUp className="h-6 w-6 text-accent" />
+                <div className="rounded-full bg-stat-accent/10 p-3">
+                  <TrendingUp className="h-6 w-6 text-stat-accent" />
                 </div>
                 <p className="mt-3 text-sm font-medium text-foreground">All stocked up!</p>
                 <p className="text-sm text-muted-foreground">No items are running low.</p>
@@ -193,7 +298,7 @@ export function Dashboard({
         </Card>
       </div>
 
-      {/* Quick Actions */}
+      {/* Folders Overview */}
       <Card className="border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Folders Overview</CardTitle>
@@ -218,6 +323,58 @@ export function Dashboard({
                 </div>
               ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity */}
+      <Card className="border-border">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 text-muted-foreground">
+                {activityFilter === "all" ? "All Activity" : activityFilter === "items" ? "Items" : "Folders"}
+                <Filter className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setActivityFilter("all")}>All Activity</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActivityFilter("items")}>Items</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActivityFilter("folders")}>Folders</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {filteredActivities.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No recent activity yet.</p>
+          ) : (
+            filteredActivities.map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3"
+              >
+                <p className="text-sm text-foreground">
+                  <span className="font-normal">{userDisplayName} created {activity.type} </span>
+                  <span className="font-semibold">{activity.targetName}</span>
+                  <span className="font-normal"> in </span>
+                  <span className="font-semibold">{activity.locationName}</span>
+                </p>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatActivityDate(activity.date)}
+                </span>
+              </div>
+            ))
+          )}
+          {activities.length > 0 && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                className="text-sm font-medium text-foreground hover:underline"
+              >
+                View all activity
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

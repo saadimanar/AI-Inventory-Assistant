@@ -89,6 +89,17 @@ async function getUserId(): Promise<string> {
   return user.id
 }
 
+// Get current user display name for activity feed
+export async function getCurrentUserDisplayName(): Promise<string> {
+  const supabase = createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return "User"
+  const name = (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string)
+  if (name) return name
+  if (user.email) return user.email.split("@")[0]
+  return "User"
+}
+
 // Inventory operations
 export async function getItems(): Promise<InventoryItem[]> {
   const supabase = createClient()
