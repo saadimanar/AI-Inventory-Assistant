@@ -46,6 +46,9 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
     imageUrl: null as string | null,
   })
   const [tagInput, setTagInput] = useState("")
+  const [quantityInputValue, setQuantityInputValue] = useState("")
+  const [minQuantityInputValue, setMinQuantityInputValue] = useState("")
+  const [priceInputValue, setPriceInputValue] = useState("")
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -63,6 +66,9 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
         tags: item.tags,
         imageUrl: item.imageUrl,
       })
+      setPriceInputValue(item.price.toString())
+      setQuantityInputValue(item.quantity.toString())
+      setMinQuantityInputValue(item.minQuantity.toString())
       setImagePreview(item.imageUrl)
       setImageFile(null)
     } else {
@@ -77,6 +83,9 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
         tags: [],
         imageUrl: null,
       })
+      setPriceInputValue("")
+      setQuantityInputValue("")
+      setMinQuantityInputValue("5")
       setImagePreview(null)
       setImageFile(null)
     }
@@ -276,8 +285,13 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 id="quantity"
                 type="number"
                 min="0"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                value={quantityInputValue}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setQuantityInputValue(raw)
+                  const num = parseInt(raw, 10)
+                  setFormData((prev) => ({ ...prev, quantity: Number.isNaN(num) ? 0 : num }))
+                }}
                 required
               />
             </div>
@@ -287,8 +301,13 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 id="minQuantity"
                 type="number"
                 min="0"
-                value={formData.minQuantity}
-                onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })}
+                value={minQuantityInputValue}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setMinQuantityInputValue(raw)
+                  const num = parseInt(raw, 10)
+                  setFormData((prev) => ({ ...prev, minQuantity: Number.isNaN(num) ? 0 : num }))
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -298,8 +317,13 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                value={priceInputValue}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setPriceInputValue(raw)
+                  const num = parseFloat(raw)
+                  setFormData((prev) => ({ ...prev, price: Number.isNaN(num) ? 0 : num }))
+                }}
                 required
               />
             </div>
