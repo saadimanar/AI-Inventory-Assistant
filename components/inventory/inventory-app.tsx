@@ -10,7 +10,6 @@ import { ItemFormDialog } from "./item-form-dialog"
 import { FolderFormDialog } from "./folder-form-dialog"
 import { ItemDetailPanel } from "./item-detail-panel"
 import { DeleteDialog } from "./delete-dialog"
-import { OnboardingModal, hasCompletedOnboarding } from "./onboarding-modal"
 import { Settings } from "./settings"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
 import {
@@ -55,7 +54,6 @@ export function InventoryApp() {
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
   const [userDisplayName, setUserDisplayName] = useState("User")
   const [isLoading, setIsLoading] = useState(true)
-  const [showOnboarding, setShowOnboarding] = useState(false)
 
   // Load data
   const loadData = useCallback(async () => {
@@ -83,13 +81,6 @@ export function InventoryApp() {
   useEffect(() => {
     loadData()
   }, [loadData])
-
-  // Show onboarding for first-time users after data (and display name) is loaded
-  useEffect(() => {
-    if (!isLoading && !hasCompletedOnboarding()) {
-      setShowOnboarding(true)
-    }
-  }, [isLoading])
 
   // Get displayed items based on current view
   const displayedItems = useMemo(() => {
@@ -363,12 +354,6 @@ export function InventoryApp() {
         onConfirm={handleConfirmDelete}
       />
 
-      <OnboardingModal
-        open={showOnboarding}
-        onOpenChange={setShowOnboarding}
-        onStartSetup={() => router.push("/setup")}
-        onExploreOnMyOwn={() => {}}
-      />
     </div>
   )
 }
