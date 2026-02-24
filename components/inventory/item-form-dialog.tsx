@@ -195,16 +195,16 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-[calc(100%-2rem)] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
         <DialogHeader>
           <DialogTitle>{item ? "Edit Item" : "Add New Item"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="min-w-0 space-y-6">
           {/* Image Upload */}
           <div className="space-y-2">
             <Label>Image</Label>
-            <div className="flex items-start gap-4">
-              <div className="relative h-32 w-32 overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted">
                 {imagePreview ? (
                   <>
                     <img
@@ -251,6 +251,7 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Item name"
+                className="w-full"
                 required
               />
             </div>
@@ -261,6 +262,7 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                 value={formData.sku}
                 onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 placeholder="e.g., ELEC-001"
+                className="w-full"
                 required
               />
             </div>
@@ -274,6 +276,7 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Add a description..."
               rows={3}
+              className="w-full min-w-0"
             />
           </div>
 
@@ -356,11 +359,12 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
           {/* Tags */}
           <div className="space-y-2">
             <Label>Tags</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 placeholder="Add a tag..."
+                className="min-w-0 flex-1"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
@@ -368,7 +372,7 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
                   }
                 }}
               />
-              <Button type="button" variant="secondary" onClick={addTag}>
+              <Button type="button" variant="secondary" onClick={addTag} className="min-h-[44px] shrink-0 sm:w-auto">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -387,11 +391,11 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isUploading}>
+          <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isUploading} className="min-h-[44px] w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={isUploading}>
+            <Button type="submit" disabled={isUploading} className="min-h-[44px] w-full sm:w-auto">
               {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

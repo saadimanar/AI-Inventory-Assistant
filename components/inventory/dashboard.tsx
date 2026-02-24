@@ -148,14 +148,14 @@ export function Dashboard({
   ]
 
   return (
-    <div className="space-y-8">
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center justify-between gap-4 border-b border-border bg-background px-4 py-4 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-6">
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <div className="min-w-0 space-y-6 md:space-y-8">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex min-w-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-4 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-6">
+        <h1 className="truncate text-xl font-semibold text-foreground md:text-2xl">Dashboard</h1>
         <Button
           type="button"
           variant="outline"
           size="default"
-          className="text-foreground border-border hover:bg-secondary hover:text-foreground"
+          className="min-h-[44px] shrink-0 text-foreground border-border hover:bg-secondary hover:text-foreground"
         >
           <SetFoldersIcon className="h-5 w-5" />
           Set Folders

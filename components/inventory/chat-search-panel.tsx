@@ -127,16 +127,16 @@ export function ChatSearchPanel({
       />
       <div
         className={cn(
-          "fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-border bg-card shadow-xl",
+          "fixed right-0 top-0 z-50 flex h-full w-full min-w-0 flex-col overflow-x-hidden border-l border-border bg-card shadow-xl",
           "lg:w-[420px]"
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b border-border px-4">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
-            <span className="font-semibold text-foreground">AI Search</span>
+        <div className="flex h-14 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border px-3 md:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <MessageCircle className="h-5 w-5 shrink-0 text-primary" />
+            <span className="truncate font-semibold text-foreground">AI Search</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-10 min-h-[44px] min-w-[44px] w-10 shrink-0 md:h-8 md:min-h-0 md:min-w-0 md:w-8" onClick={onClose} aria-label="Close">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -192,22 +192,22 @@ export function ChatSearchPanel({
           </div>
         </ScrollArea>
 
-        <div className="border-t border-border p-4">
+        <div className="shrink-0 border-t border-border p-3 md:p-4">
           <form
             onSubmit={(e) => {
               e.preventDefault()
               sendMessage()
             }}
-            className="flex gap-2"
+            className="flex min-w-0 gap-2"
           >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Search your inventory..."
-              className="flex-1"
+              className="min-w-0 flex-1"
               disabled={loading}
             />
-            <Button type="submit" size="icon" disabled={loading}>
+            <Button type="submit" size="icon" className="min-h-[44px] min-w-[44px] shrink-0 md:h-8 md:w-8 md:min-h-0 md:min-w-0" disabled={loading}>
               <Send className="h-4 w-4" />
             </Button>
           </form>

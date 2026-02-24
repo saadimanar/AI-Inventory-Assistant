@@ -77,7 +77,7 @@ export function FolderFormDialog({ open, onOpenChange, folder, folders, onSave }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[85vh] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{folder ? "Edit Folder" : "Create New Folder"}</DialogTitle>
         </DialogHeader>
@@ -89,6 +89,7 @@ export function FolderFormDialog({ open, onOpenChange, folder, folders, onSave }
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g., Electronics"
+              className="w-full"
               required
             />
           </div>
@@ -136,11 +137,11 @@ export function FolderFormDialog({ open, onOpenChange, folder, folders, onSave }
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px] w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit">{folder ? "Save Changes" : "Create Folder"}</Button>
+            <Button type="submit" className="min-h-[44px] w-full sm:w-auto">{folder ? "Save Changes" : "Create Folder"}</Button>
           </div>
         </form>
       </DialogContent>

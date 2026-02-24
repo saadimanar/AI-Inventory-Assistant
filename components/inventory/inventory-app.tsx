@@ -276,7 +276,7 @@ export function InventoryApp() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen overflow-x-hidden bg-background">
       {/* Sidebar */}
       <Sidebar
         folders={folders}
@@ -294,13 +294,13 @@ export function InventoryApp() {
       {/* Main Content */}
       <main
         className={cn(
-          "flex flex-1 flex-col transition-[margin] duration-200 ease-in-out",
+          "flex min-w-0 flex-1 flex-col overflow-x-hidden transition-[margin] duration-200 ease-in-out",
           "lg:ml-64",
           isSidebarCollapsed && "lg:ml-16"
         )}
       >
-        <div className="flex flex-1">
-          <div className={`flex-1 p-4 pt-20 lg:p-8 lg:pt-8 ${selectedItem ? "hidden lg:block" : ""}`}>
+        <div className="flex min-w-0 flex-1">
+          <div className={`min-w-0 flex-1 p-4 pt-20 lg:p-8 lg:pt-8 ${selectedItem ? "hidden lg:block" : ""}`}>
             {currentView === "dashboard" ? (
               <Dashboard
                 stats={stats}
@@ -343,7 +343,7 @@ export function InventoryApp() {
 
           {/* Detail Panel */}
           {selectedItem && (
-            <div className="w-full lg:w-96 flex-shrink-0">
+            <div className="w-full min-w-0 flex-shrink-0 lg:w-96">
               <ItemDetailPanel
                 item={selectedItem}
                 folder={folders.find((f) => f.id === selectedItem.folderId)}

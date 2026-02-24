@@ -19,17 +19,17 @@ export function ItemDetailPanel({ item, folder, onClose, onEdit, onDelete }: Ite
   const isLowStock = item.quantity <= item.minQuantity
 
   return (
-    <div className="flex h-full flex-col border-l border-border bg-card">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden border-l border-border bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <h2 className="font-semibold text-foreground">Item Details</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+      <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border p-3 md:p-4">
+        <h2 className="truncate text-base font-semibold text-foreground md:text-lg">Item Details</h2>
+        <Button variant="ghost" size="icon" className="h-10 min-h-[44px] min-w-[44px] w-10 md:h-8 md:min-h-0 md:min-w-0 md:w-8" onClick={onClose} aria-label="Close">
           <X className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 md:p-4">
         {/* Image */}
         <div className="aspect-[4/3] overflow-hidden rounded-xl bg-muted">
           {item.imageUrl ? (
@@ -42,9 +42,9 @@ export function ItemDetailPanel({ item, folder, onClose, onEdit, onDelete }: Ite
         </div>
 
         {/* Title & Price */}
-        <div className="mt-4">
-          <h3 className="text-xl font-bold text-foreground">{item.name}</h3>
-          <p className="mt-1 text-2xl font-bold text-primary">${item.price.toFixed(2)}</p>
+        <div className="mt-4 min-w-0">
+          <h3 className="break-words text-lg font-bold text-foreground md:text-xl">{item.name}</h3>
+          <p className="mt-1 text-xl font-bold text-primary md:text-2xl">${item.price.toFixed(2)}</p>
         </div>
 
         {/* Low Stock Warning */}
@@ -59,9 +59,9 @@ export function ItemDetailPanel({ item, folder, onClose, onEdit, onDelete }: Ite
 
         {/* Details */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">SKU</span>
-            <span className="font-medium text-foreground">{item.sku}</span>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <span className="shrink-0 text-sm text-muted-foreground">SKU</span>
+            <span className="min-w-0 truncate text-right font-medium text-foreground">{item.sku}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Quantity</span>
@@ -92,9 +92,9 @@ export function ItemDetailPanel({ item, folder, onClose, onEdit, onDelete }: Ite
         {item.description && (
           <>
             <Separator className="my-4" />
-            <div>
+            <div className="min-w-0">
               <h4 className="text-sm font-medium text-foreground">Description</h4>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+              <p className="mt-2 break-words text-sm text-muted-foreground leading-relaxed">{item.description}</p>
             </div>
           </>
         )}
@@ -134,14 +134,15 @@ export function ItemDetailPanel({ item, folder, onClose, onEdit, onDelete }: Ite
       </div>
 
       {/* Actions */}
-      <div className="border-t border-border p-4">
-        <div className="flex gap-3">
-          <Button onClick={onEdit} className="flex-1">
+      <div className="shrink-0 border-t border-border p-3 md:p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+          <Button onClick={onEdit} className="min-h-[44px] flex-1">
             <Edit2 className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="outline" onClick={onDelete} className="text-destructive hover:bg-destructive hover:text-destructive-foreground bg-transparent">
-            <Trash2 className="h-4 w-4" />
+          <Button variant="outline" onClick={onDelete} className="min-h-[44px] text-destructive hover:bg-destructive hover:text-destructive-foreground sm:flex-initial bg-transparent">
+            <Trash2 className="mr-2 h-4 w-4 sm:mr-0" />
+            Delete
           </Button>
         </div>
       </div>
