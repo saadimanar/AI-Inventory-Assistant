@@ -13,6 +13,7 @@ import { DeleteDialog } from "./delete-dialog"
 import { Settings } from "./settings"
 import { ChatSearchPanel } from "./chat-search-panel"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
+import { cn } from "@/lib/utils"
 import {
   getItems,
   getFolders,
@@ -28,9 +29,11 @@ import {
   getItemsByFolder,
   getCurrentUserDisplayName,
 } from "@/lib/inventory-store"
+import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed"
 
 export function InventoryApp() {
   const router = useRouter()
+  const { isSidebarCollapsed, toggleSidebar } = useSidebarCollapsed()
   // State
   const [currentView, setCurrentView] = useState("dashboard")
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -284,10 +287,18 @@ export function InventoryApp() {
         onFolderSelect={setCurrentFolderId}
         onAddFolder={handleAddFolder}
         onOpenChatSearch={() => setChatSearchOpen(true)}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={toggleSidebar}
       />
 
       {/* Main Content */}
-      <main className="flex flex-1 flex-col lg:ml-64">
+      <main
+        className={cn(
+          "flex flex-1 flex-col transition-[margin] duration-200 ease-in-out",
+          "lg:ml-64",
+          isSidebarCollapsed && "lg:ml-16"
+        )}
+      >
         <div className="flex flex-1">
           <div className={`flex-1 p-4 pt-20 lg:p-8 lg:pt-8 ${selectedItem ? "hidden lg:block" : ""}`}>
             {currentView === "dashboard" ? (
