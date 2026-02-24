@@ -4,7 +4,6 @@ import { useState } from "react"
 import {
   LayoutDashboard,
   Package,
-  FolderOpen,
   AlertTriangle,
   Settings,
   Plus,
@@ -12,6 +11,7 @@ import {
   Search,
   Menu,
   X,
+  MessageCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,7 @@ interface SidebarProps {
   onViewChange: (view: string) => void
   onFolderSelect: (folderId: string | null) => void
   onAddFolder: () => void
+  onOpenChatSearch?: () => void
 }
 
 export function Sidebar({
@@ -37,6 +38,7 @@ export function Sidebar({
   onViewChange,
   onFolderSelect,
   onAddFolder,
+  onOpenChatSearch,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [folderSearch, setFolderSearch] = useState("")
@@ -55,6 +57,9 @@ export function Sidebar({
       badge: lowStockCount > 0 ? lowStockCount : undefined,
       badgeColor: "bg-destructive text-destructive-foreground",
     },
+    ...(onOpenChatSearch
+      ? [{ id: "chat-search", label: "AI Search", icon: MessageCircle, isAction: true as const }]
+      : []),
   ]
 
   return (
@@ -90,30 +95,38 @@ export function Sidebar({
         <ScrollArea className="flex-1 px-3 py-4">
           {/* Main Navigation */}
           <nav className="space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onViewChange(item.id)
-                  setIsOpen(false)
-                }}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  currentView === item.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.badge && (
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", item.badgeColor)}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const isAction = "isAction" in item && item.isAction
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (isAction && item.id === "chat-search" && onOpenChatSearch) {
+                      onOpenChatSearch()
+                      setIsOpen(false)
+                    } else if (!isAction) {
+                      onViewChange(item.id)
+                      setIsOpen(false)
+                    }
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    !isAction && currentView === item.id
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {"badge" in item && item.badge && (
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", item.badgeColor)}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </nav>
 
           {/* Folders Section */}

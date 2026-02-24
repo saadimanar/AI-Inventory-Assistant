@@ -11,6 +11,7 @@ import { FolderFormDialog } from "./folder-form-dialog"
 import { ItemDetailPanel } from "./item-detail-panel"
 import { DeleteDialog } from "./delete-dialog"
 import { Settings } from "./settings"
+import { ChatSearchPanel } from "./chat-search-panel"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
 import {
   getItems,
@@ -46,6 +47,7 @@ export function InventoryApp() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null)
+  const [chatSearchOpen, setChatSearchOpen] = useState(false)
 
   // Data state
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -171,15 +173,20 @@ export function InventoryApp() {
 
   const handleSaveItem = async (data: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">) => {
     try {
+      let savedId: string
       if (editingItem) {
         const updated = await updateItem(editingItem.id, data)
         if (updated && selectedItem?.id === editingItem.id) {
           setSelectedItem(updated)
         }
+        savedId = editingItem.id
       } else {
-        await addItem(data)
+        const created = await addItem(data)
+        savedId = created.id
       }
       await loadData()
+      // Update search index (embedding + search_text) in background
+      fetch(`/api/items/${savedId}/embedding`, { method: "POST" }).catch(() => {})
     } catch (error) {
       console.error("Error saving item:", error)
       alert(error instanceof Error ? error.message : "Failed to save item")
@@ -207,6 +214,14 @@ export function InventoryApp() {
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
+  }
+
+  const handleSelectItemFromChat = (item: { id: string }) => {
+    const found = items.find((i) => i.id === item.id)
+    if (found) {
+      setSelectedItem(found)
+      setChatSearchOpen(false)
+    }
   }
 
   const handleViewChange = (view: string) => {
@@ -268,6 +283,7 @@ export function InventoryApp() {
         onViewChange={handleViewChange}
         onFolderSelect={setCurrentFolderId}
         onAddFolder={handleAddFolder}
+        onOpenChatSearch={() => setChatSearchOpen(true)}
       />
 
       {/* Main Content */}
@@ -354,6 +370,12 @@ export function InventoryApp() {
         onConfirm={handleConfirmDelete}
       />
 
+      <ChatSearchPanel
+        open={chatSearchOpen}
+        onClose={() => setChatSearchOpen(false)}
+        folders={folders}
+        onSelectItem={handleSelectItemFromChat}
+      />
     </div>
   )
 }

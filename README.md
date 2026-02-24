@@ -17,14 +17,31 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 3. Configure Supabase Auth
+**Optional – AI chat search** (natural language item search):
+
+```bash
+OPENAI_API_KEY=your_openai_api_key
+```
+
+If set, the app will use OpenAI for query understanding and semantic search. Without it, chat search still works with keyword filters and full-text search (after running the chat-search migration).
+
+### 3. (Optional) Enable AI Chat Search
+
+To use the **AI Search** feature (natural language search over your inventory):
+
+1. Run the chat-search migration in the Supabase SQL Editor: open `supabase-chat-search-migration.sql`, copy its contents, and run it in your project. This adds `search_text` and `embedding` columns to `items` and a hybrid search function.
+2. Set `OPENAI_API_KEY` in `.env.local` for best results (semantic + filters). Without it, search uses only filters and full-text on `search_text`.
+
+After adding or editing items, the app will index them for search in the background.
+
+### 4. Configure Supabase Auth
 
 In your Supabase dashboard:
 1. Go to Authentication → URL Configuration
 2. Add `http://localhost:3000/auth/callback` to your Redirect URLs
 3. Add your production URL when deploying
 
-### 4. Run the Development Server
+### 5. Run the Development Server
 
 ```bash
 npm run dev
