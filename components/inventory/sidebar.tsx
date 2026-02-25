@@ -71,37 +71,45 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - RTL: fixed to start side */}
       <Button
         variant="ghost"
         size="icon"
-        className="fixed left-4 top-4 z-50 h-11 min-h-[44px] min-w-[44px] w-11 lg:hidden"
+        className="fixed start-4 top-4 z-50 h-11 min-h-[44px] min-w-[44px] w-11 rounded-lg lg:hidden mac-transition"
         onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close menu" : "Open menu"}
       >
         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
 
-      {/* Overlay */}
-      {isOpen && <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setIsOpen(false)} />}
+      {/* Overlay - blurred when open */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-[var(--mac-overlay)] backdrop-blur-[var(--mac-blur-sm)] lg:hidden mac-transition"
+          onClick={() => setIsOpen(false)}
+          aria-hidden
+        />
+      )}
 
-      {/* Sidebar */}
+      {/* Sidebar - RTL: inset-inline-start, width transition, slide from start when mobile */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-full flex-col border-r border-border bg-card transition-[width,transform] duration-200 ease-in-out lg:translate-x-0",
-          "w-64",
-          collapsed && "lg:w-16",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed start-0 inset-y-0 z-40 flex h-full flex-col border-border bg-[var(--mac-sidebar-bg)] lg:bg-sidebar",
+          "border-e shadow-[var(--mac-shadow-sm)]",
+          "transition-[width,transform] duration-[var(--mac-duration-slow)] ease-[var(--mac-ease)] lg:translate-x-0",
+          "w-[var(--mac-sidebar-width)]",
+          collapsed && "lg:w-[var(--mac-sidebar-collapsed)]",
+          isOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"
         )}
       >
         {/* Sidebar header: collapsed = toggle only; expanded = logo + title + toggle */}
         {collapsed ? (
-          <div className="flex h-16 shrink-0 items-center justify-center border-b border-border">
+          <div className="flex h-[var(--mac-toolbar-height)] shrink-0 items-center justify-center border-b border-border">
             {onToggleSidebar && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0 max-md:hidden"
+                className="h-8 w-8 shrink-0 max-md:hidden rounded-lg mac-transition"
                 onClick={onToggleSidebar}
                 aria-label="Expand sidebar"
               >
@@ -112,16 +120,16 @@ export function Sidebar({
             )}
           </div>
         ) : (
-          <div className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4">
+          <div className="flex h-[var(--mac-toolbar-height)] shrink-0 items-center gap-2 border-b border-border px-4">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Package className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold text-foreground truncate">Inventory</span>
+            <span className="truncate text-lg font-semibold text-foreground">Inventory</span>
             {onToggleSidebar && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="ml-auto h-8 w-8 shrink-0 max-md:hidden"
+                className="ms-auto h-8 w-8 shrink-0 max-md:hidden rounded-lg mac-transition"
                 onClick={onToggleSidebar}
                 aria-label="Collapse sidebar"
               >
@@ -135,7 +143,7 @@ export function Sidebar({
 
         <ScrollArea className={cn("flex-1 py-4", collapsed ? "lg:px-2" : "px-3")}>
           {/* Main Navigation */}
-          <nav className="space-y-1">
+          <nav className="space-y-0.5" aria-label="Main navigation">
             {navItems.map((item) => {
               const isAction = "isAction" in item && item.isAction
               return (
@@ -152,15 +160,15 @@ export function Sidebar({
                     }
                   }}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium mac-transition",
                     collapsed && "lg:justify-center lg:px-2",
                     !isAction && currentView === item.id
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  <span className={cn("flex-1 text-left", collapsed && "lg:sr-only lg:w-0 lg:overflow-hidden lg:opacity-0")}>
+                  <span className={cn("flex-1 text-start", collapsed && "lg:sr-only lg:w-0 lg:overflow-hidden lg:opacity-0")}>
                     {item.label}
                   </span>
                   {"badge" in item && item.badge && (
@@ -179,7 +187,7 @@ export function Sidebar({
               <span className={cn("text-xs font-semibold uppercase tracking-wider text-muted-foreground", collapsed && "lg:sr-only lg:w-0 lg:overflow-hidden lg:opacity-0")}>
                 Folders
               </span>
-              <Button variant="ghost" size="icon" className={cn("h-6 w-6 shrink-0", collapsed && "lg:h-8 lg:w-8")} onClick={onAddFolder} title={collapsed ? "Add folder" : undefined}>
+              <Button variant="ghost" size="icon" className={cn("h-6 w-6 shrink-0 rounded-lg", collapsed && "lg:h-8 lg:w-8")} onClick={onAddFolder} title={collapsed ? "Add folder" : undefined} aria-label="Add folder">
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -187,12 +195,12 @@ export function Sidebar({
             {folders.length > 4 && !collapsed && (
               <div className="mb-2 px-1">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
                   <Input
                     placeholder="Search folders..."
                     value={folderSearch}
                     onChange={(e) => setFolderSearch(e.target.value)}
-                    className="h-8 pl-8 text-sm"
+                    className="h-8 ps-8 pe-3 text-sm rounded-lg border-border"
                   />
                 </div>
               </div>
@@ -226,11 +234,11 @@ export function Sidebar({
             type="button"
             onClick={() => onViewChange("settings")}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium mac-transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
               collapsed && "lg:justify-center lg:px-2",
               currentView === "settings"
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
             <Settings className="h-4 w-4 shrink-0" />
@@ -260,8 +268,8 @@ function FolderItem({ folder, children, isSelected, selectedFolderId, onSelect }
         type="button"
         onClick={() => onSelect(folder.id)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-          isSelected ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm mac-transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          isSelected ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
         )}
       >
         {hasChildren && (
@@ -271,18 +279,19 @@ function FolderItem({ folder, children, isSelected, selectedFolderId, onSelect }
               e.stopPropagation()
               setIsExpanded(!isExpanded)
             }}
-            className="rounded p-0.5 hover:bg-secondary"
+            className="rounded p-0.5 hover:bg-accent"
+            aria-expanded={isExpanded}
           >
-            <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
+            <ChevronRight className={cn("h-3 w-3 transition-transform duration-150", isExpanded && "rotate-90")} />
           </button>
         )}
-        <div className="h-3 w-3 rounded" style={{ backgroundColor: folder.color }} />
-        <span className="flex-1 truncate text-left">{folder.name}</span>
-        <span className="text-xs text-muted-foreground">{folder.itemCount}</span>
+        <div className="h-3 w-3 shrink-0 rounded" style={{ backgroundColor: folder.color }} />
+        <span className="min-w-0 flex-1 truncate text-start">{folder.name}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{folder.itemCount}</span>
       </button>
 
       {hasChildren && isExpanded && (
-        <div className="ml-4 mt-0.5 space-y-0.5">
+        <div className="ms-4 mt-0.5 space-y-0.5">
           {children.map((child) => (
             <FolderItem
               key={child.id}

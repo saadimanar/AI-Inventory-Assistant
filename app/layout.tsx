@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { Poppins } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from 'sonner'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const poppins = Poppins({
@@ -21,9 +23,22 @@ export default function RootLayout({
   children: ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${poppins.variable} font-sans antialiased`}>
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
+          {children}
+        </ThemeProvider>
+        <Toaster
+          theme="system"
+          position="bottom-right"
+          toastOptions={{
+            classNames: {
+              toast: "rounded-xl border border-border bg-card shadow-[var(--mac-shadow-md)]",
+              title: "text-foreground font-medium",
+              description: "text-muted-foreground text-sm",
+            },
+          }}
+        />
         <Analytics />
       </body>
     </html>

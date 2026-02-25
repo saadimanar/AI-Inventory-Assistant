@@ -2,16 +2,22 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { AppShell } from "./app-shell"
 import { Sidebar } from "./sidebar"
 import { Dashboard } from "./dashboard"
-import { Header } from "./header"
+import { Toolbar, ToolbarListActions } from "./toolbar"
+import { SetFoldersIcon } from "./dashboard"
+import { ContentWindow } from "./content-window"
 import { ItemGrid } from "./item-grid"
+import { LoadingSkeleton } from "./loading-skeleton"
 import { ItemFormDialog } from "./item-form-dialog"
 import { FolderFormDialog } from "./folder-form-dialog"
 import { ItemDetailPanel } from "./item-detail-panel"
 import { DeleteDialog } from "./delete-dialog"
 import { Settings } from "./settings"
 import { ChatSearchPanel } from "./chat-search-panel"
+import { Button } from "@/components/ui/button"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
 import { cn } from "@/lib/utils"
 import {
@@ -167,7 +173,7 @@ export function InventoryApp() {
         await loadData()
       } catch (error) {
         console.error("Error deleting item:", error)
-        alert("Failed to delete item")
+        toast.error("Failed to delete item")
       }
     }
     setDeleteDialogOpen(false)
@@ -192,7 +198,7 @@ export function InventoryApp() {
       fetch(`/api/items/${savedId}/embedding`, { method: "POST" }).catch(() => {})
     } catch (error) {
       console.error("Error saving item:", error)
-      alert(error instanceof Error ? error.message : "Failed to save item")
+      toast.error(error instanceof Error ? error.message : "Failed to save item")
     }
   }
 
@@ -211,7 +217,7 @@ export function InventoryApp() {
       await loadData()
     } catch (error) {
       console.error("Error saving folder:", error)
-      alert(error instanceof Error ? error.message : "Failed to save folder")
+      toast.error(error instanceof Error ? error.message : "Failed to save folder")
     }
   }
 
@@ -265,19 +271,11 @@ export function InventoryApp() {
   const { title, subtitle } = getPageInfo()
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
-          <p className="text-muted-foreground">Loading inventory...</p>
-        </div>
-      </div>
-    )
+    return <LoadingSkeleton />
   }
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden bg-background">
-      {/* Sidebar */}
+    <AppShell>
       <Sidebar
         folders={folders}
         currentView={currentView}
@@ -291,17 +289,47 @@ export function InventoryApp() {
         onToggleSidebar={toggleSidebar}
       />
 
-      {/* Main Content */}
+      {/* Main Content - margin when sidebar visible (RTL: ms) */}
       <main
         className={cn(
-          "flex min-w-0 flex-1 flex-col overflow-x-hidden transition-[margin] duration-200 ease-in-out",
-          "lg:ml-64",
-          isSidebarCollapsed && "lg:ml-16"
+          "flex min-w-0 flex-1 flex-col overflow-x-hidden pt-14 lg:pt-0 mac-transition",
+          "lg:ms-64",
+          isSidebarCollapsed && "lg:ms-16"
         )}
       >
-        <div className="flex min-w-0 flex-1">
-          <div className={`min-w-0 flex-1 p-4 pt-20 lg:p-8 lg:pt-8 ${selectedItem ? "hidden lg:block" : ""}`}>
-            {currentView === "dashboard" ? (
+        <div className="flex min-w-0 flex-1 flex-col gap-0 px-4 pb-4 pt-2 lg:px-6 lg:pb-6 lg:pt-6">
+          {/* Same toolbar/header on every page */}
+          <Toolbar
+            title={title}
+            subtitle={subtitle}
+            children={
+              currentView === "dashboard" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  className="ms-auto min-h-[44px] shrink-0 rounded-lg border-border hover:bg-accent mac-transition sm:min-h-0"
+                >
+                  <SetFoldersIcon className="me-2 h-5 w-5" />
+                  Set Folders
+                </Button>
+              ) : currentView === "all-items" || currentView === "low-stock" || currentView === "folder" ? (
+                <ToolbarListActions
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSortChange={handleSortChange}
+                  onAddItem={handleAddItem}
+                />
+              ) : undefined
+            }
+          />
+
+          {currentView === "dashboard" && (
+            <ContentWindow className="overflow-y-auto">
               <Dashboard
                 stats={stats}
                 lowStockItems={lowStockItems}
@@ -313,22 +341,16 @@ export function InventoryApp() {
                 onViewAllItems={() => setCurrentView("all-items")}
                 onSelectItem={handleSelectItem}
               />
-            ) : currentView === "settings" ? (
+            </ContentWindow>
+          )}
+          {currentView === "settings" && (
+            <ContentWindow>
               <Settings />
-            ) : (
-              <div className="space-y-6">
-                <Header
-                  title={title}
-                  subtitle={subtitle}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSortChange={handleSortChange}
-                  onAddItem={handleAddItem}
-                />
+            </ContentWindow>
+          )}
+          {(currentView === "all-items" || currentView === "low-stock" || currentView === "folder") && (
+            <div className={cn("flex min-w-0 flex-1 gap-0", selectedItem && "flex-col lg:flex-row")}>
+              <ContentWindow noPadding className={cn("min-h-0 flex-1", selectedItem && "hidden lg:block")}>
                 <ItemGrid
                   items={displayedItems}
                   folders={folders}
@@ -337,26 +359,24 @@ export function InventoryApp() {
                   onEditItem={handleEditItem}
                   onDeleteItem={handleDeleteItem}
                 />
-              </div>
-            )}
-          </div>
-
-          {/* Detail Panel */}
-          {selectedItem && (
-            <div className="w-full min-w-0 flex-shrink-0 lg:w-96">
-              <ItemDetailPanel
-                item={selectedItem}
-                folder={folders.find((f) => f.id === selectedItem.folderId)}
-                onClose={() => setSelectedItem(null)}
-                onEdit={() => handleEditItem(selectedItem)}
-                onDelete={() => handleDeleteItem(selectedItem)}
-              />
+              </ContentWindow>
+              {selectedItem && (
+                <div className="w-full min-w-0 flex-shrink-0 lg:w-96 lg:min-w-[24rem]">
+                  <ItemDetailPanel
+                    item={selectedItem}
+                    folder={folders.find((f) => f.id === selectedItem.folderId)}
+                    onClose={() => setSelectedItem(null)}
+                    onEdit={() => handleEditItem(selectedItem)}
+                    onDelete={() => handleDeleteItem(selectedItem)}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
 
-      {/* Dialogs */}
+      {/* Dialogs - outside main */}
       <ItemFormDialog
         open={itemFormOpen}
         onOpenChange={setItemFormOpen}
@@ -387,6 +407,6 @@ export function InventoryApp() {
         folders={folders}
         onSelectItem={handleSelectItemFromChat}
       />
-    </div>
+    </AppShell>
   )
 }

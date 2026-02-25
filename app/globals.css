@@ -1,94 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './design-system/mac-tokens.css';
 
 @custom-variant dark (&:is(.dark *));
-
-:root {
-  --background: oklch(0.98 0 0);
-  --foreground: oklch(0.15 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0 0);
-  --primary: oklch(0.2 0 0);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.25 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.92 0 0);
-  --accent-foreground: oklch(0.2 0 0);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.25 0 0);
-  --chart-1: oklch(0.35 0 0);
-  --chart-2: oklch(0.5 0 0);
-  --chart-3: oklch(0.65 0 0);
-  --chart-4: oklch(0.45 0 0);
-  --chart-5: oklch(0.55 0 0);
-  --radius: 0.5rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.15 0 0);
-  --sidebar-primary: oklch(0.2 0 0);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0 0);
-  --sidebar-accent-foreground: oklch(0.25 0 0);
-  --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.25 0 0);
-  --warning: oklch(0.8 0.15 70);
-  --warning-foreground: oklch(0.35 0.1 70);
-  /* Stat/icon accent colors (kept colorful for Total Items, Total Value, Total Folders) */
-  --stat-primary: oklch(0.5 0.2 250);
-  --stat-accent: oklch(0.7 0.16 165);
-  --stat-folders: oklch(0.75 0.15 70);
-  --stat-quantity: oklch(0.55 0.2 300);
-  --stat-value: oklch(0.75 0.12 70);
-}
-
-.dark {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.16 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.15 0 0);
-  --secondary: oklch(0.22 0 0);
-  --secondary-foreground: oklch(0.9 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.28 0 0);
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.28 0 0);
-  --input: oklch(0.28 0 0);
-  --ring: oklch(0.7 0 0);
-  --chart-1: oklch(0.7 0 0);
-  --chart-2: oklch(0.6 0 0);
-  --chart-3: oklch(0.8 0 0);
-  --chart-4: oklch(0.5 0 0);
-  --chart-5: oklch(0.65 0 0);
-  --sidebar: oklch(0.14 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.95 0 0);
-  --sidebar-primary-foreground: oklch(0.15 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
-  --sidebar-accent-foreground: oklch(0.9 0 0);
-  --sidebar-border: oklch(0.28 0 0);
-  --sidebar-ring: oklch(0.7 0 0);
-  --warning: oklch(0.7 0.15 70);
-  --warning-foreground: oklch(0.95 0.02 70);
-  /* Stat/icon accent colors (kept colorful in dark mode) */
-  --stat-primary: oklch(0.65 0.2 250);
-  --stat-accent: oklch(0.7 0.16 165);
-  --stat-folders: oklch(0.8 0.15 70);
-  --stat-quantity: oklch(0.65 0.2 300);
-  --stat-value: oklch(0.8 0.12 70);
-}
 
 @theme inline {
   --font-sans: var(--font-poppins), 'Poppins', sans-serif;
@@ -140,9 +54,26 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Mac-style transitions for interactive elements */
+@layer utilities {
+  .mac-transition {
+    transition-duration: var(--mac-duration-normal);
+    transition-timing-function: var(--mac-ease);
+  }
+  .mac-transition-fast {
+    transition-duration: var(--mac-duration-fast);
+    transition-timing-function: var(--mac-ease);
   }
 }

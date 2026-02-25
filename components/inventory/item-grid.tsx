@@ -25,12 +25,12 @@ interface ItemGridProps {
 export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, onDeleteItem }: ItemGridProps) {
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
-        <div className="rounded-full bg-muted p-4">
-          <Package className="h-8 w-8 text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 py-16 px-6 text-center">
+        <div className="rounded-full bg-muted p-5">
+          <Package className="h-10 w-10 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-foreground">No items found</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Add your first item to get started.</p>
+        <h3 className="mt-5 text-lg font-semibold text-foreground">No items found</h3>
+        <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">Add your first item to get started, or try a different search.</p>
       </div>
     )
   }
@@ -39,15 +39,18 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
     return (
       <>
         {/* Mobile list: stacked cards (no horizontal scroll, 44px tap targets) */}
-        <div className="w-full max-w-full space-y-2 md:hidden">
+        <div className="w-full max-w-full space-y-1.5 md:hidden">
           {items.map((item) => {
             const folder = folders.find((f) => f.id === item.folderId)
             const isLowStock = item.quantity <= item.minQuantity
             return (
               <div
                 key={item.id}
-                className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors active:bg-muted/50"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectItem(item)}
+                onKeyDown={(e) => e.key === "Enter" && onSelectItem(item)}
+                className="flex min-w-0 cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 mac-transition hover:bg-accent/80 active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                   {item.imageUrl ? (
@@ -69,7 +72,7 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
                     className="line-clamp-2 min-w-0 break-words text-sm text-muted-foreground"
                     title={item.description || undefined}
                   >
-                    {item.description}
+                    {item.description || "—"}
                   </p>
                   <div className="mt-0.5 flex items-center gap-2">
                     <span className={cn("text-sm font-medium", isLowStock ? "text-destructive" : "text-foreground")}>
@@ -113,27 +116,27 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
           })}
         </div>
 
-        {/* Desktop list: table */}
-        <div className="hidden w-full max-w-full overflow-x-hidden rounded-xl border border-border md:block">
+        {/* Desktop list: dense table with hover/focus */}
+        <div className="hidden w-full max-w-full overflow-x-hidden rounded-lg border border-border md:block">
           <table className="w-full max-w-full table-fixed">
             <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="w-[35%] min-w-0 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b border-border bg-muted/40">
+                <th className="w-[35%] min-w-0 px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Item
                 </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">
+                <th className="hidden px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">
                   SKU
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Quantity
                 </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
+                <th className="hidden px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
                   Price
                 </th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">
+                <th className="hidden px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">
                   Folder
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5 text-end text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Actions
                 </th>
               </tr>
@@ -145,10 +148,13 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
                 return (
                   <tr
                     key={item.id}
-                    className="bg-card transition-colors hover:bg-muted/50 cursor-pointer"
+                    tabIndex={0}
+                    role="button"
                     onClick={() => onSelectItem(item)}
+                    onKeyDown={(e) => e.key === "Enter" && onSelectItem(item)}
+                    className="bg-card mac-transition hover:bg-accent/70 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   >
-                    <td className="min-w-0 w-[35%] px-4 py-3">
+                    <td className="min-w-0 w-[35%] px-4 py-2.5">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                           {item.imageUrl ? (
@@ -170,15 +176,15 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
                             className="line-clamp-2 min-w-0 break-words text-sm text-muted-foreground"
                             title={item.description || undefined}
                           >
-                            {item.description}
+                            {item.description || "—"}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      <span className="text-sm text-muted-foreground">{item.sku}</span>
+                    <td className="hidden px-4 py-2.5 sm:table-cell">
+                      <span className="block max-w-[8rem] truncate text-sm text-muted-foreground">{item.sku}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className={cn("font-medium", isLowStock ? "text-destructive" : "text-foreground")}>
                           {item.quantity}
@@ -186,10 +192,10 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
                         {isLowStock && <AlertTriangle className="h-4 w-4 text-destructive" />}
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 md:table-cell">
+                    <td className="hidden px-4 py-2.5 md:table-cell">
                       <span className="text-sm text-foreground">${item.price.toFixed(2)}</span>
                     </td>
-                    <td className="hidden px-4 py-3 lg:table-cell">
+                    <td className="hidden px-4 py-2.5 lg:table-cell">
                       {folder && (
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded" style={{ backgroundColor: folder.color }} />
@@ -197,7 +203,7 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-2.5 text-end">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-8 w-8 md:h-8 md:w-8 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0">
@@ -245,8 +251,11 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
         return (
           <Card
             key={item.id}
-            className="group cursor-pointer overflow-hidden border-border transition-all hover:shadow-lg"
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectItem(item)}
+            onKeyDown={(e) => e.key === "Enter" && onSelectItem(item)}
+            className="group cursor-pointer overflow-hidden rounded-xl border-border mac-transition hover:shadow-[var(--mac-shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <div className="relative aspect-[4/3] bg-muted">
               {item.imageUrl ? (

@@ -1,8 +1,7 @@
 "use client"
 
-import React from "react"
-
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { X, Upload, Plus, Trash2, Loader2 } from "lucide-react"
 import {
   Dialog,
@@ -156,7 +155,7 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
       onOpenChange(false)
     } catch (error) {
       console.error("Error saving item:", error)
-      alert(error instanceof Error ? error.message : "Failed to save item")
+      toast.error(error instanceof Error ? error.message : "Failed to save item")
     } finally {
       setIsUploading(false)
     }

@@ -54,7 +54,7 @@ function MoneyIcon({ className }: { className?: string }) {
   )
 }
 
-function SetFoldersIcon({ className }: { className?: string }) {
+export function SetFoldersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
       <path
@@ -149,24 +149,12 @@ export function Dashboard({
 
   return (
     <div className="min-w-0 space-y-6 md:space-y-8">
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex min-w-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-4 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-6">
-        <h1 className="truncate text-xl font-semibold text-foreground md:text-2xl">Dashboard</h1>
-        <Button
-          type="button"
-          variant="outline"
-          size="default"
-          className="min-h-[44px] shrink-0 text-foreground border-border hover:bg-secondary hover:text-foreground"
-        >
-          <SetFoldersIcon className="h-5 w-5" />
-          Set Folders
-        </Button>
-      </div>
       {/* Inventory Summary */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Inventory Summary</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {summaryCards.map((stat) => (
-            <Card key={stat.title} className="border-border shadow-sm">
+            <Card key={stat.title} className="rounded-xl border-border shadow-[var(--mac-shadow-sm)] mac-transition">
               <CardContent className="flex flex-col items-center p-6">
                 <div className="mb-4">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-full ${stat.bgColor}`}>
@@ -183,15 +171,15 @@ export function Dashboard({
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Items that need restocking */}
-        <Card className="border-border">
+        <Card className="rounded-xl border-border shadow-[var(--mac-shadow-sm)] mac-transition">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               Items that need restocking
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onViewLowStock} className="text-primary">
+            <Button variant="ghost" size="sm" onClick={onViewLowStock} className="text-primary mac-transition rounded-lg">
               View All
-              <ArrowRight className="ml-1 h-3 w-3" />
+              <ArrowRight className="ms-1 h-3 w-3 rtl:rotate-180" />
             </Button>
           </CardHeader>
           <CardContent>
@@ -210,7 +198,7 @@ export function Dashboard({
                     key={item.id}
                     type="button"
                     onClick={() => onSelectItem(item)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-secondary"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-start mac-transition hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <div className="h-10 w-10 overflow-hidden rounded-lg bg-muted">
                       {item.imageUrl ? (
@@ -242,12 +230,12 @@ export function Dashboard({
         </Card>
 
         {/* Recently Updated */}
-        <Card className="border-border">
+        <Card className="rounded-xl border-border shadow-[var(--mac-shadow-sm)] mac-transition">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-semibold">Recently Updated</CardTitle>
-            <Button variant="ghost" size="sm" onClick={onViewAllItems} className="text-primary">
+            <Button variant="ghost" size="sm" onClick={onViewAllItems} className="text-primary mac-transition rounded-lg">
               View All
-              <ArrowRight className="ml-1 h-3 w-3" />
+              <ArrowRight className="ms-1 h-3 w-3 rtl:rotate-180" />
             </Button>
           </CardHeader>
           <CardContent>
@@ -259,7 +247,7 @@ export function Dashboard({
                     key={item.id}
                     type="button"
                     onClick={() => onSelectItem(item)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-secondary"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-3 text-start mac-transition hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <div className="h-10 w-10 overflow-hidden rounded-lg bg-muted">
                       {item.imageUrl ? (
@@ -299,7 +287,7 @@ export function Dashboard({
       </div>
 
       {/* Folders Overview */}
-      <Card className="border-border">
+      <Card className="rounded-xl border-border shadow-[var(--mac-shadow-sm)] mac-transition">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Folders Overview</CardTitle>
         </CardHeader>
@@ -311,7 +299,7 @@ export function Dashboard({
               .map((folder) => (
                 <div
                   key={folder.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 mac-transition hover:bg-accent/80"
                 >
                   <div className="rounded-lg p-2" style={{ backgroundColor: `${folder.color}20` }}>
                     <FolderOpen className="h-5 w-5" style={{ color: folder.color }} />
@@ -327,7 +315,7 @@ export function Dashboard({
       </Card>
 
       {/* Recent Activity */}
-      <Card className="border-border">
+      <Card className="rounded-xl border-border shadow-[var(--mac-shadow-sm)] mac-transition">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
           <DropdownMenu>

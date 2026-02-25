@@ -1,0 +1,194 @@
+/**
+ * Mac UI Design System (Ventura/Sonoma)
+ * Tokens: colors, border, radii, shadows, blur, typography.
+ * Light + dark mode. RTL-safe (use logical properties in components).
+ */
+
+:root {
+  /* ---- Colors (light) ---- */
+  --mac-bg: oklch(0.97 0.002 247);
+  --mac-bg-elevated: oklch(1 0 0);
+  --mac-bg-secondary: oklch(0.965 0.002 247);
+  --mac-fg: oklch(0.2 0.02 260);
+  --mac-fg-secondary: oklch(0.45 0.02 260);
+  --mac-fg-tertiary: oklch(0.55 0.02 260);
+  --mac-border: oklch(0.88 0.01 260);
+  --mac-border-subtle: oklch(0.93 0.005 260);
+  --mac-accent: oklch(0.55 0.22 255);
+  --mac-accent-hover: oklch(0.5 0.22 255);
+  --mac-accent-muted: oklch(0.92 0.04 255);
+  --mac-destructive: oklch(0.55 0.22 25);
+  --mac-destructive-hover: oklch(0.5 0.22 25);
+  --mac-sidebar-bg: oklch(0.98 0.002 247);
+  --mac-toolbar-bg: oklch(0.985 0.002 247);
+  --mac-overlay: oklch(0 0 0 / 0.4);
+  --mac-focus-ring: oklch(0.55 0.22 255);
+
+  /* ---- Spacing (design token scale) ---- */
+  --mac-space-1: 0.25rem;   /* 4px */
+  --mac-space-2: 0.5rem;    /* 8px */
+  --mac-space-3: 0.75rem;   /* 12px */
+  --mac-space-4: 1rem;      /* 16px */
+  --mac-space-5: 1.25rem;   /* 20px */
+  --mac-space-6: 1.5rem;   /* 24px */
+  --mac-space-8: 2rem;      /* 32px */
+  --mac-space-10: 2.5rem;   /* 40px */
+  --mac-space-12: 3rem;     /* 48px */
+  --mac-sidebar-width: 16rem;   /* 256px */
+  --mac-sidebar-collapsed: 4rem; /* 64px */
+  --mac-toolbar-height: 3.25rem;  /* 52px */
+
+  /* ---- Border ---- */
+  --mac-border-width: 1px;
+  --mac-radius-xs: 4px;
+  --mac-radius-sm: 6px;
+  --mac-radius-md: 8px;
+  --mac-radius-lg: 10px;
+  --mac-radius-xl: 12px;
+  --mac-radius-2xl: 16px;
+
+  /* ---- Shadows ---- */
+  --mac-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.04);
+  --mac-shadow-sm: 0 2px 8px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+  --mac-shadow-md: 0 4px 16px oklch(0 0 0 / 0.08), 0 2px 4px oklch(0 0 0 / 0.04);
+  --mac-shadow-lg: 0 8px 32px oklch(0 0 0 / 0.1), 0 2px 8px oklch(0 0 0 / 0.06);
+  --mac-shadow-focus: 0 0 0 3px oklch(0.55 0.22 255 / 0.35);
+
+  /* ---- Blur ---- */
+  --mac-blur-sm: 8px;
+  --mac-blur-md: 16px;
+  --mac-blur-lg: 24px;
+  --mac-blur-xl: 40px;
+
+  /* ---- Typography scale ---- */
+  --mac-font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
+  --mac-text-xs: 0.6875rem;   /* 11px */
+  --mac-text-sm: 0.8125rem;   /* 13px */
+  --mac-text-base: 0.9375rem; /* 15px */
+  --mac-text-lg: 1.0625rem;   /* 17px */
+  --mac-text-xl: 1.25rem;     /* 20px */
+  --mac-text-2xl: 1.5rem;     /* 24px */
+  --mac-font-medium: 500;
+  --mac-font-semibold: 600;
+  --mac-font-bold: 700;
+  --mac-leading-tight: 1.25;
+  --mac-leading-normal: 1.4;
+
+  /* ---- Transitions ---- */
+  --mac-duration-fast: 150ms;
+  --mac-duration-normal: 200ms;
+  --mac-duration-slow: 250ms;
+  --mac-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.dark {
+  --mac-bg: oklch(0.14 0.01 260);
+  --mac-bg-elevated: oklch(0.18 0.01 260);
+  --mac-bg-secondary: oklch(0.2 0.01 260);
+  --mac-fg: oklch(0.95 0.01 260);
+  --mac-fg-secondary: oklch(0.65 0.02 260);
+  --mac-fg-tertiary: oklch(0.5 0.02 260);
+  --mac-border: oklch(0.28 0.02 260);
+  --mac-border-subtle: oklch(0.22 0.01 260);
+  --mac-accent: oklch(0.65 0.2 255);
+  --mac-accent-hover: oklch(0.7 0.2 255);
+  --mac-accent-muted: oklch(0.28 0.06 255);
+  --mac-destructive: oklch(0.6 0.22 25);
+  --mac-destructive-hover: oklch(0.65 0.22 25);
+  --mac-sidebar-bg: oklch(0.12 0.01 260);
+  --mac-toolbar-bg: oklch(0.16 0.01 260);
+  --mac-overlay: oklch(0 0 0 / 0.6);
+  --mac-focus-ring: oklch(0.65 0.2 255);
+
+  --mac-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.2);
+  --mac-shadow-sm: 0 2px 8px oklch(0 0 0 / 0.25), 0 1px 2px oklch(0 0 0 / 0.2);
+  --mac-shadow-md: 0 4px 16px oklch(0 0 0 / 0.3), 0 2px 4px oklch(0 0 0 / 0.2);
+  --mac-shadow-lg: 0 8px 32px oklch(0 0 0 / 0.35), 0 2px 8px oklch(0 0 0 / 0.25);
+  --mac-shadow-focus: 0 0 0 3px oklch(0.65 0.2 255 / 0.4);
+}
+
+/* Map to existing shadcn-style variables so components keep working */
+:root {
+  --background: var(--mac-bg);
+  --foreground: var(--mac-fg);
+  --card: var(--mac-bg-elevated);
+  --card-foreground: var(--mac-fg);
+  --popover: var(--mac-bg-elevated);
+  --popover-foreground: var(--mac-fg);
+  --primary: var(--mac-accent);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: var(--mac-bg-secondary);
+  --secondary-foreground: var(--mac-fg);
+  --muted: var(--mac-bg-secondary);
+  --muted-foreground: var(--mac-fg-secondary);
+  --accent: var(--mac-accent-muted);
+  --accent-foreground: var(--mac-fg);
+  --destructive: var(--mac-destructive);
+  --destructive-foreground: oklch(1 0 0);
+  --border: var(--mac-border);
+  --input: var(--mac-border);
+  --ring: var(--mac-focus-ring);
+  --sidebar: var(--mac-sidebar-bg);
+  --sidebar-foreground: var(--mac-fg);
+  --sidebar-primary: var(--mac-accent);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--mac-bg-secondary);
+  --sidebar-accent-foreground: var(--mac-fg);
+  --sidebar-border: var(--mac-border-subtle);
+  --sidebar-ring: var(--mac-focus-ring);
+  --radius: var(--mac-radius-md);
+  --chart-1: oklch(0.35 0 0);
+  --chart-2: oklch(0.5 0 0);
+  --chart-3: oklch(0.65 0 0);
+  --chart-4: oklch(0.45 0 0);
+  --chart-5: oklch(0.55 0 0);
+  --warning: oklch(0.75 0.15 70);
+  --warning-foreground: oklch(0.25 0.1 70);
+  --stat-primary: oklch(0.5 0.2 250);
+  --stat-accent: oklch(0.7 0.16 165);
+  --stat-folders: oklch(0.75 0.15 70);
+  --stat-quantity: oklch(0.55 0.2 300);
+  --stat-value: oklch(0.75 0.12 70);
+}
+
+.dark {
+  --background: var(--mac-bg);
+  --foreground: var(--mac-fg);
+  --card: var(--mac-bg-elevated);
+  --card-foreground: var(--mac-fg);
+  --popover: var(--mac-bg-elevated);
+  --popover-foreground: var(--mac-fg);
+  --primary: var(--mac-accent);
+  --primary-foreground: oklch(0 0 0);
+  --secondary: var(--mac-bg-secondary);
+  --secondary-foreground: var(--mac-fg);
+  --muted: var(--mac-bg-secondary);
+  --muted-foreground: var(--mac-fg-secondary);
+  --accent: var(--mac-accent-muted);
+  --accent-foreground: var(--mac-fg);
+  --destructive: var(--mac-destructive);
+  --destructive-foreground: oklch(1 0 0);
+  --border: var(--mac-border);
+  --input: var(--mac-border);
+  --ring: var(--mac-focus-ring);
+  --sidebar: var(--mac-sidebar-bg);
+  --sidebar-foreground: var(--mac-fg);
+  --sidebar-primary: var(--mac-accent);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: var(--mac-bg-secondary);
+  --sidebar-accent-foreground: var(--mac-fg);
+  --sidebar-border: var(--mac-border-subtle);
+  --sidebar-ring: var(--mac-focus-ring);
+  --chart-1: oklch(0.7 0 0);
+  --chart-2: oklch(0.6 0 0);
+  --chart-3: oklch(0.8 0 0);
+  --chart-4: oklch(0.5 0 0);
+  --chart-5: oklch(0.65 0 0);
+  --warning: oklch(0.7 0.15 70);
+  --warning-foreground: oklch(0.95 0.02 70);
+  --stat-primary: oklch(0.65 0.2 250);
+  --stat-accent: oklch(0.7 0.16 165);
+  --stat-folders: oklch(0.8 0.15 70);
+  --stat-quantity: oklch(0.65 0.2 300);
+  --stat-value: oklch(0.8 0.12 70);
+}
