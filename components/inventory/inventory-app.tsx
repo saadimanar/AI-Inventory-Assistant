@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { AppShell } from "./app-shell"
 import { Sidebar } from "./sidebar"
@@ -16,7 +16,6 @@ import { FolderFormDialog } from "./folder-form-dialog"
 import { ItemDetailPanel } from "./item-detail-panel"
 import { DeleteDialog } from "./delete-dialog"
 import { Settings } from "./settings"
-import { ChatSearchPanel } from "./chat-search-panel"
 import { Button } from "@/components/ui/button"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
 import { cn } from "@/lib/utils"
@@ -56,7 +55,6 @@ export function InventoryApp() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null)
-  const [chatSearchOpen, setChatSearchOpen] = useState(false)
 
   // Data state
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -92,6 +90,29 @@ export function InventoryApp() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Sync state from URL when on main inventory page (e.g. coming from AI Search with selectedItem)
+  useEffect(() => {
+    if (pathname !== "/" || !searchParams) return
+    const view = searchParams.get("view")
+    const folderId = searchParams.get("folderId")
+    const selectedItemId = searchParams.get("selectedItem")
+    if (view && ["dashboard", "all-items", "low-stock", "folder", "settings"].includes(view)) {
+      setCurrentView(view)
+      if (view === "folder" && folderId) {
+        setCurrentFolderId(folderId)
+      } else if (view !== "folder") {
+        setCurrentFolderId(null)
+      }
+    }
+    if (selectedItemId && items.length > 0) {
+      const found = items.find((i) => i.id === selectedItemId)
+      if (found) setSelectedItem(found)
+    }
+  }, [pathname, searchParams, items])
 
   // Get displayed items based on current view
   const displayedItems = useMemo(() => {
@@ -225,14 +246,6 @@ export function InventoryApp() {
     setSelectedItem(item)
   }
 
-  const handleSelectItemFromChat = (item: { id: string }) => {
-    const found = items.find((i) => i.id === item.id)
-    if (found) {
-      setSelectedItem(found)
-      setChatSearchOpen(false)
-    }
-  }
-
   const handleViewChange = (view: string) => {
     setCurrentView(view)
     setSearchQuery("")
@@ -284,7 +297,7 @@ export function InventoryApp() {
         onViewChange={handleViewChange}
         onFolderSelect={setCurrentFolderId}
         onAddFolder={handleAddFolder}
-        onOpenChatSearch={() => setChatSearchOpen(true)}
+        aiSearchHref="/ai-search"
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={toggleSidebar}
       />
@@ -399,13 +412,6 @@ export function InventoryApp() {
         title="Delete Item"
         description={`Are you sure you want to delete "${itemToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleConfirmDelete}
-      />
-
-      <ChatSearchPanel
-        open={chatSearchOpen}
-        onClose={() => setChatSearchOpen(false)}
-        folders={folders}
-        onSelectItem={handleSelectItemFromChat}
       />
     </AppShell>
   )

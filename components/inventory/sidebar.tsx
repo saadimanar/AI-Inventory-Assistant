@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import {
   LayoutDashboard,
   Package,
@@ -29,6 +30,8 @@ interface SidebarProps {
   onViewChange: (view: string) => void
   onFolderSelect: (folderId: string | null) => void
   onAddFolder: () => void
+  /** When set, "AI Search" is a Link to this href; otherwise uses onOpenChatSearch */
+  aiSearchHref?: string
   onOpenChatSearch?: () => void
   isSidebarCollapsed?: boolean
   onToggleSidebar?: () => void
@@ -42,6 +45,7 @@ export function Sidebar({
   onViewChange,
   onFolderSelect,
   onAddFolder,
+  aiSearchHref,
   onOpenChatSearch,
   isSidebarCollapsed = false,
   onToggleSidebar,
@@ -54,6 +58,7 @@ export function Sidebar({
 
   const rootFolders = filteredFolders.filter((f) => !f.parentId)
 
+  const showAiSearch = Boolean(aiSearchHref || onOpenChatSearch)
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "all-items", label: "All Items", icon: Package },
@@ -64,23 +69,25 @@ export function Sidebar({
       badge: lowStockCount > 0 ? lowStockCount : undefined,
       badgeColor: "bg-destructive text-destructive-foreground",
     },
-    ...(onOpenChatSearch
+    ...(showAiSearch
       ? [{ id: "chat-search", label: "AI Search", icon: MessageCircle, isAction: true as const }]
       : []),
   ]
 
   return (
     <>
-      {/* Mobile Menu Button - RTL: fixed to start side */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed start-4 top-4 z-50 h-11 min-h-[44px] min-w-[44px] w-11 rounded-lg lg:hidden mac-transition"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? "Close menu" : "Open menu"}
-      >
-        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </Button>
+      {/* Mobile: only show open button when drawer is closed; close is in sidebar header (top right) */}
+      {!isOpen && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed start-4 top-4 z-50 h-11 min-h-[44px] min-w-[44px] w-11 rounded-lg lg:hidden mac-transition"
+          onClick={() => setIsOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
 
       {/* Overlay - blurred when open */}
       {isOpen && (
@@ -102,50 +109,96 @@ export function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"
         )}
       >
-        {/* Sidebar header: collapsed = toggle only; expanded = logo + title + toggle */}
-        {collapsed ? (
-          <div className="flex h-[var(--mac-toolbar-height)] shrink-0 items-center justify-center border-b border-border">
-            {onToggleSidebar && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 max-md:hidden rounded-lg mac-transition"
-                onClick={onToggleSidebar}
-                aria-label="Expand sidebar"
-              >
-                <span className="size-5 [color:currentColor] rtl:scale-x-[-1]" aria-hidden>
-                  <PanelLeft className="size-5" aria-hidden />
-                </span>
-              </Button>
-            )}
+        {/* Sidebar header: on mobile always show full header with close; on desktop collapsed = icon only, expanded = logo + title + collapse */}
+        {/* Collapsed header: desktop only (lg), when collapsed */}
+        <div
+          className={cn(
+            "flex h-[var(--mac-toolbar-height)] shrink-0 items-center justify-center border-b border-border",
+            !collapsed && "hidden",
+            collapsed && "max-lg:hidden lg:flex"
+          )}
+        >
+          {onToggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-lg mac-transition"
+              onClick={onToggleSidebar}
+              aria-label="Expand sidebar"
+            >
+              <span className="size-5 [color:currentColor] rtl:scale-x-[-1]" aria-hidden>
+                <PanelLeft className="size-5" aria-hidden />
+              </span>
+            </Button>
+          )}
+        </div>
+        {/* Expanded header: on mobile always (same as desktop expanded); on desktop when not collapsed */}
+        <div
+          className={cn(
+            "flex h-[var(--mac-toolbar-height)] shrink-0 items-center gap-2 border-b border-border px-4",
+            collapsed && "lg:hidden"
+          )}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <Package className="h-4 w-4 text-primary-foreground" />
           </div>
-        ) : (
-          <div className="flex h-[var(--mac-toolbar-height)] shrink-0 items-center gap-2 border-b border-border px-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <Package className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="truncate text-lg font-semibold text-foreground">Inventory</span>
-            {onToggleSidebar && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ms-auto h-8 w-8 shrink-0 max-md:hidden rounded-lg mac-transition"
-                onClick={onToggleSidebar}
-                aria-label="Collapse sidebar"
-              >
-                <span className="size-5 [color:currentColor] rtl:scale-x-[-1]" aria-hidden>
-                  <PanelLeftClose className="size-5" aria-hidden />
-                </span>
-              </Button>
-            )}
-          </div>
-        )}
+          <span className="truncate text-lg font-semibold text-foreground">Inventory</span>
+          {/* Mobile: close drawer */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ms-auto h-8 w-8 shrink-0 rounded-lg mac-transition lg:hidden"
+            onClick={() => setIsOpen(false)}
+            aria-label="Close menu"
+          >
+            <X className="size-5 rtl:scale-x-[-1]" />
+          </Button>
+          {/* Desktop: collapse sidebar */}
+          {onToggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ms-auto h-8 w-8 shrink-0 rounded-lg mac-transition hidden lg:flex"
+              onClick={onToggleSidebar}
+              aria-label="Collapse sidebar"
+            >
+              <span className="size-5 [color:currentColor] rtl:scale-x-[-1]" aria-hidden>
+                <PanelLeftClose className="size-5" aria-hidden />
+              </span>
+            </Button>
+          )}
+        </div>
 
-        <ScrollArea className={cn("flex-1 py-4", collapsed ? "lg:px-2" : "px-3")}>
+        <ScrollArea className={cn("flex-1 py-4 px-3", collapsed && "lg:px-2")}>
           {/* Main Navigation */}
           <nav className="space-y-0.5" aria-label="Main navigation">
             {navItems.map((item) => {
               const isAction = "isAction" in item && item.isAction
+              const isAiSearch = isAction && item.id === "chat-search"
+              const isActive = currentView === item.id
+              const baseClass = cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium mac-transition",
+                collapsed && "lg:justify-center lg:px-2",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+              )
+              const labelHiddenWhenCollapsed = collapsed && "lg:sr-only lg:w-0 lg:overflow-hidden lg:opacity-0"
+              if (isAiSearch && aiSearchHref) {
+                return (
+                  <Link
+                    key={item.id}
+                    href={aiSearchHref}
+                    onClick={() => setIsOpen(false)}
+                    className={baseClass}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={cn("flex-1 text-start", labelHiddenWhenCollapsed)}>
+                      {item.label}
+                    </span>
+                  </Link>
+                )
+              }
               return (
                 <button
                   key={item.id}
@@ -159,20 +212,14 @@ export function Sidebar({
                       setIsOpen(false)
                     }
                   }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium mac-transition",
-                    collapsed && "lg:justify-center lg:px-2",
-                    !isAction && currentView === item.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
-                  )}
+                  className={baseClass}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  <span className={cn("flex-1 text-start", collapsed && "lg:sr-only lg:w-0 lg:overflow-hidden lg:opacity-0")}>
+                  <span className={cn("flex-1 text-start", labelHiddenWhenCollapsed)}>
                     {item.label}
                   </span>
                   {"badge" in item && item.badge && (
-                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium shrink-0", item.badgeColor, collapsed && "lg:sr-only")}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium shrink-0", item.badgeColor, labelHiddenWhenCollapsed)}>
                       {item.badge}
                     </span>
                   )}
