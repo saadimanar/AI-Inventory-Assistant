@@ -255,9 +255,9 @@ export function ItemGrid({ items, folders, viewMode, onSelectItem, onEditItem, o
             tabIndex={0}
             onClick={() => onSelectItem(item)}
             onKeyDown={(e) => e.key === "Enter" && onSelectItem(item)}
-            className="group cursor-pointer overflow-hidden rounded-xl border-border mac-transition hover:shadow-[var(--mac-shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="group cursor-pointer overflow-hidden rounded-xl border-border mac-transition hover:shadow-[var(--mac-shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 gap-0 py-0"
           >
-            <div className="relative aspect-[4/3] bg-muted">
+            <div className="relative h-48 w-full overflow-hidden rounded-t-xl bg-muted">
               {item.imageUrl ? (
                 <img
                   src={item.imageUrl || "/placeholder.svg"}
