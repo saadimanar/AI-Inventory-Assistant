@@ -51,7 +51,7 @@ export function ChatSearchPanel({
         <div className="flex h-14 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border px-3 md:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <MessageCircle className="h-5 w-5 shrink-0 text-primary" />
-            <span className="truncate font-semibold text-foreground">AI Search</span>
+            <span className="truncate font-semibold text-foreground">Advanced Search</span>
           </div>
           <Button variant="ghost" size="icon" className="h-10 min-h-[44px] min-w-[44px] w-10 shrink-0 md:h-8 md:min-h-0 md:min-w-0 md:w-8" onClick={onClose} aria-label="Close">
             <X className="h-4 w-4" />

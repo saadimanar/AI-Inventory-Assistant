@@ -94,7 +94,7 @@ export function InventoryApp() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // Sync state from URL when on main inventory page (e.g. coming from AI Search with selectedItem)
+  // Sync state from URL when on main inventory page (e.g. coming from Advanced Search with selectedItem)
   useEffect(() => {
     if (pathname !== "/" || !searchParams) return
     const view = searchParams.get("view")

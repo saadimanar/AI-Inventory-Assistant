@@ -12,7 +12,6 @@ import {
   Search,
   Menu,
   X,
-  MessageCircle,
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react"
@@ -30,7 +29,7 @@ interface SidebarProps {
   onViewChange: (view: string) => void
   onFolderSelect: (folderId: string | null) => void
   onAddFolder: () => void
-  /** When set, "AI Search" is a Link to this href; otherwise uses onOpenChatSearch */
+  /** When set, "Advanced Search" is a Link to this href; otherwise uses onOpenChatSearch */
   aiSearchHref?: string
   onOpenChatSearch?: () => void
   isSidebarCollapsed?: boolean
@@ -70,7 +69,7 @@ export function Sidebar({
       badgeColor: "bg-destructive text-destructive-foreground",
     },
     ...(showAiSearch
-      ? [{ id: "chat-search", label: "AI Search", icon: MessageCircle, isAction: true as const }]
+      ? [{ id: "chat-search", label: "Advanced Search", icon: Search, isAction: true as const }]
       : []),
   ]
 

@@ -21,7 +21,7 @@ Full-stack inventory management with natural-language search: manage items and f
 
 **Live:** [https://ai-personal-assistant-lilac.vercel.app](https://ai-personal-assistant-lilac.vercel.app)
 
-*Screenshots: add dashboard / AI Search panel as needed.*
+*Screenshots: add dashboard / Advanced Search panel as needed.*
 
 ---
 
@@ -45,7 +45,7 @@ Full-stack inventory management with natural-language search: manage items and f
 
 ---
 
-## 🔍 AI Search (Brief)
+## 🔍 Advanced Search (Brief)
 
 - **Intent extraction** — LLM returns JSON: `search_items` | `inventory_question` | `other`, plus optional clarification.
 - **Semantic query** — User phrase (e.g. “rounded oak table”) embedded via OpenAI; used for vector similarity or FTS when embedding is unavailable.
