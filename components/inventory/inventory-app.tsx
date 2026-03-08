@@ -215,8 +215,12 @@ export function InventoryApp() {
         savedId = created.id
       }
       await loadData()
-      // Update search index (embedding + search_text) in background
-      fetch(`/api/items/${savedId}/embedding`, { method: "POST" }).catch(() => {})
+      // Update search index (embedding + search_text) after every create/update so AI search works
+      fetch(`/api/items/${savedId}/embedding`, { method: "POST" }).catch((err) => {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[inventory] Search index update failed for item", savedId, err)
+        }
+      })
     } catch (error) {
       console.error("Error saving item:", error)
       toast.error(error instanceof Error ? error.message : "Failed to save item")

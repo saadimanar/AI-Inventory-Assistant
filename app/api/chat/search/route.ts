@@ -10,6 +10,41 @@ import type {
 
 const TOP_N = 20
 
+/** True when we can run a filter-only search (no semantic query required). */
+function hasStrongStructuredFilters(
+  f: ExtractedFilters | Record<string, unknown>
+): boolean {
+  return (
+    (typeof f.sku_contains === "string" && f.sku_contains.trim() !== "") ||
+    (Array.isArray(f.tags) && f.tags.length > 0) ||
+    (typeof f.low_stock_only === "boolean" && f.low_stock_only) ||
+    (typeof f.max_price === "number" && !Number.isNaN(f.max_price)) ||
+    (typeof f.min_price === "number" && !Number.isNaN(f.min_price)) ||
+    (typeof f.max_quantity === "number" && !Number.isNaN(f.max_quantity)) ||
+    (typeof f.min_quantity === "number" && !Number.isNaN(f.min_quantity)) ||
+    (typeof f.name_contains === "string" && f.name_contains.trim() !== "") ||
+    (typeof f.description_contains === "string" && f.description_contains.trim() !== "") ||
+    (typeof f.folder_id === "string" && f.folder_id.trim() !== "")
+  )
+}
+
+function buildAppliedFilters(
+  f: ExtractedFilters | Record<string, unknown>
+): ExtractedFilters {
+  return {
+    name_contains: (f.name_contains as string) ?? null,
+    description_contains: (f.description_contains as string) ?? null,
+    tags: (f.tags as string[] | null) ?? null,
+    folder_id: (f.folder_id as string) ?? null,
+    max_price: (f.max_price as number) ?? null,
+    min_price: (f.min_price as number) ?? null,
+    max_quantity: (f.max_quantity as number) ?? null,
+    min_quantity: (f.min_quantity as number) ?? null,
+    sku_contains: (f.sku_contains as string) ?? null,
+    low_stock_only: (f.low_stock_only as boolean) ?? null,
+  }
+}
+
 function dbRowToResultItem(row: Record<string, unknown>): ChatSearchResultItem {
   return {
     id: row.id as string,
@@ -128,19 +163,23 @@ export async function POST(request: Request) {
     return NextResponse.json(response)
   }
 
-  // Require a non-empty semantic query so we never return "all items" (no query = no RPC call).
   const semanticQuery = (extraction.semantic_query ?? "").trim()
-  if (semanticQuery.length < 2) {
+  const f = extraction.filters || {}
+  const strongFilters = hasStrongStructuredFilters(f)
+
+  // Allow search with filter-only when user gave structured filters (SKU, tags, price, low stock) even without semantic query.
+  if (semanticQuery.length < 2 && !strongFilters) {
     const response: ChatSearchResponse = {
       type: "clarify",
-      question: "What item are you looking for?",
+      question: "What item are you looking for? You can try: a name or description, SKU (e.g. SSD-6001), tags (e.g. electronics), price (e.g. under $30), or low stock items.",
     }
     return NextResponse.json(response)
   }
 
-  const f = extraction.filters || {}
+  const useFilterOnly = semanticQuery.length < 2 && strongFilters
+
   let queryEmbedding: number[] | null = null
-  if (semanticQuery && process.env.OPENAI_API_KEY) {
+  if (semanticQuery.length >= 2 && process.env.OPENAI_API_KEY && !useFilterOnly) {
     try {
       queryEmbedding = await getEmbedding(semanticQuery)
     } catch (e) {
@@ -148,45 +187,21 @@ export async function POST(request: Request) {
     }
   }
 
-  // Never call RPC when both query_embedding and fts_query would be empty (avoids returning all items).
   const embeddingStr =
     queryEmbedding && queryEmbedding.length === 1536
       ? `[${queryEmbedding.join(",")}]`
       : null
-  const ftsQueryForRpc = !embeddingStr ? semanticQuery : null
+  // Hybrid: pass both vector and FTS when we have both (RPC combines scores). When filter-only, pass neither.
+  const ftsQueryForRpc =
+    useFilterOnly ? null : (semanticQuery.length >= 2 ? semanticQuery : null)
 
-  if (!embeddingStr && !ftsQueryForRpc) {
+  if (!useFilterOnly && !embeddingStr && !ftsQueryForRpc) {
     const response: ChatSearchResponse = {
       type: "results",
       items: [],
-      appliedFilters: {
-        name_contains: f.name_contains ?? null,
-        description_contains: f.description_contains ?? null,
-        tags: f.tags ?? null,
-        folder_id: f.folder_id ?? null,
-        max_price: f.max_price ?? null,
-        min_price: f.min_price ?? null,
-        max_quantity: f.max_quantity ?? null,
-        min_quantity: f.min_quantity ?? null,
-        sku_contains: f.sku_contains ?? null,
-      },
+      appliedFilters: buildAppliedFilters(f),
     }
     return NextResponse.json(response)
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    const debug = {
-      semantic_query: semanticQuery,
-      openai_key_set: Boolean(process.env.OPENAI_API_KEY),
-      query_embedding_generated: Boolean(embeddingStr),
-      query_embedding_length: queryEmbedding?.length ?? 0,
-      rpc_params: {
-        limit: TOP_N,
-        fts_query_length: ftsQueryForRpc?.length ?? 0,
-        embedding_present: Boolean(embeddingStr),
-      },
-    }
-    console.debug("[chat/search]", JSON.stringify(debug))
   }
 
   const rpcParams = {
@@ -195,13 +210,16 @@ export async function POST(request: Request) {
     p_limit: TOP_N,
     p_name_ilike: f.name_contains ?? null,
     p_description_ilike: f.description_contains ?? null,
+    p_sku_ilike: f.sku_contains ?? null,
     p_tags_contain: f.tags && f.tags.length > 0 ? f.tags : null,
     p_folder_id: f.folder_id ?? null,
     p_max_price: f.max_price ?? null,
     p_min_price: f.min_price ?? null,
     p_max_quantity: f.max_quantity ?? null,
     p_min_quantity: f.min_quantity ?? null,
+    p_low_stock_only: f.low_stock_only ?? null,
     p_fts_query: ftsQueryForRpc,
+    p_filter_only: useFilterOnly,
   }
 
   const { data: rpcData, error: rpcError } = await supabase.rpc(
@@ -215,12 +233,6 @@ export async function POST(request: Request) {
     items = rpcData.map((row: Record<string, unknown>) =>
       dbRowToResultItem(row)
     )
-    if (process.env.NODE_ENV === "development" && items.length > 0) {
-      console.debug(
-        "[chat/search] similarity scores:",
-        items.map((i) => ({ id: i.id, name: i.name, score: i.score }))
-      )
-    }
   } else {
     // Fallback: no RPC (migration not run) or pgvector not available
     let q = supabase
@@ -277,20 +289,18 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-    items = (rows || []).map((row) => dbRowToResultItem(row as Record<string, unknown>))
+    let fallbackItems = (rows || []).map((row) =>
+      dbRowToResultItem(row as Record<string, unknown>)
+    )
+    if (f.low_stock_only) {
+      fallbackItems = fallbackItems.filter(
+        (i) => i.quantity <= i.minQuantity
+      )
+    }
+    items = fallbackItems
   }
 
-  const appliedFilters: ExtractedFilters = {
-    name_contains: f.name_contains ?? null,
-    description_contains: f.description_contains ?? null,
-    tags: f.tags ?? null,
-    folder_id: f.folder_id ?? null,
-    max_price: f.max_price ?? null,
-    min_price: f.min_price ?? null,
-    max_quantity: f.max_quantity ?? null,
-    min_quantity: f.min_quantity ?? null,
-    sku_contains: f.sku_contains ?? null,
-  }
+  const appliedFilters = buildAppliedFilters(f)
 
   const response: ChatSearchResponse = {
     type: "results",

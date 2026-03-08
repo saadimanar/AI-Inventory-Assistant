@@ -12,6 +12,8 @@ export interface ExtractedFilters {
   max_quantity?: number | null
   min_quantity?: number | null
   sku_contains?: string | null
+  /** When true, return only items where quantity <= min_quantity (low stock). */
+  low_stock_only?: boolean | null
 }
 
 export interface ChatSearchExtraction {

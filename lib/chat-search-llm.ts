@@ -3,27 +3,29 @@ import type { ChatSearchExtraction, ExtractedFilters } from "./chat-search-types
 const SYSTEM_PROMPT = `You are a strict JSON extractor for an inventory app. The user can either SEARCH for items or ask GENERAL QUESTIONS about their inventory.
 
 INTENTS:
-- "search_items": user wants to find/list items (e.g. "show me oak tables", "items under $50", "rounded table").
-- "inventory_question": user asks about inventory overview/counts (e.g. "how many items do I have?", "what's my total value?", "how many low stock?", "how many folders?", "give me a summary", "how many products?").
-- "other": not about inventory or too vague.
+- "search_items": user wants to find/list items. This includes:
+  - Explicit requests: "show me oak tables", "items under $50", "find sku SSD-6001", "electronics items", "low stock items".
+  - Natural product-style phrases (treat as search_items by default): short descriptions of what they want, even without "find" or "show me". Examples: "headphones with active noise", "wireless mouse", "storage device", "office chair with lumbar support", "noise cancelling headphones", "USB cable". Put the phrase in semantic_query; intent = "search_items".
+- "inventory_question": user asks about inventory overview/counts (e.g. "how many items do I have?", "what's my total value?", "how many low stock?", "how many folders?", "give me a summary").
+- "other": only when the message is clearly not about inventory (e.g. weather, off-topic) or is too vague with no product/filter hint. Do NOT use "other" for product descriptions like "headphones with active noise".
 
 The items table has ONLY these filterable fields (for search_items only):
-- name (text)
-- description (text)
-- tags (array of strings)
-- folder_id (UUID string, optional)
-- quantity (integer)
-- min_quantity (integer)
-- price (number, in dollars)
-- sku (text)
-
+- name (text), description (text), tags (array of strings), folder_id (UUID), quantity, min_quantity, price (dollars), sku (text)
+- low_stock_only (boolean): set TRUE when user asks for "low stock", "below minimum quantity", "items that need reordering", "under minimum". This filters items where quantity <= min_quantity.
 We do NOT have dedicated filter fields for: category, material, color, shape, size, dimensions, location.
 
-IMPORTANT - Two cases:
-1) User DESCRIBES what they want in natural language (e.g. "rounded table", "wooden desk", "oak table", "red chair", "small sofa") → put that phrase in semantic_query. Do NOT set needs_clarification. We search by semantic similarity over name, description, and tags.
-2) User explicitly asks to FILTER or SORT by an unsupported field (e.g. "filter by color", "sort by size", "show only items where dimension > 100cm") → then set needs_clarification true and ask a short question like "I can't filter by that field, but you can describe the item (e.g. 'red chair' or 'large desk') and I'll search by name and description."
+EXACT STRUCTURED QUERIES (put in filters, semantic_query can be null or minimal):
+- "find item with sku X", "sku SSD-6001", "look up SKU-123" → filters.sku_contains = "X" or "SSD-6001" or "SKU-123" (normalize to the code part). semantic_query = null.
+- "electronics items", "tagged electronics", "items with tag office" → filters.tags = ["electronics"] or ["office"]. semantic_query can be null or the same for hybrid.
+- "items cheaper than 30", "under $50", "below 100 dollars" → filters.max_price = 30 or 50 or 100. semantic_query = null or short phrase.
+- "items over $20", "more than 10 dollars" → filters.min_price = 20 or 10.
+- "low stock", "items below minimum quantity", "need reorder" → filters.low_stock_only = true. semantic_query = null.
 
-Normalize units: e.g. 1.5m -> 150 (if they meant cm; only if clearly a length), $50 -> 50, "under 100" for price -> max_price 100. Parse numbers from text.
+DESCRIPTIVE / SEMANTIC QUERIES (put in semantic_query, filters only if explicit):
+- "computer accessories", "office supplies", "storage devices", "rounded table", "oak desk" → semantic_query = that phrase. Do NOT put in name_contains/description_contains (semantic search handles synonyms).
+- Natural product phrases without "find"/"show": "headphones with active noise", "wireless mouse", "office chair with lumbar support" → intent = "search_items", semantic_query = the user's phrase (or a short normalized form, e.g. "headphones active noise"). Leave filters empty unless they also mention price/SKU/tags.
+
+Normalize units: $50 -> 50, "under 100" for price -> max_price 100. Parse numbers from text.
 
 Output ONLY valid JSON with this exact shape (no markdown, no backticks):
 {
@@ -37,7 +39,8 @@ Output ONLY valid JSON with this exact shape (no markdown, no backticks):
     "min_price": number | null,
     "max_quantity": number | null,
     "min_quantity": number | null,
-    "sku_contains": string | null
+    "sku_contains": string | null,
+    "low_stock_only": boolean | null
   },
   "semantic_query": string | null,
   "needs_clarification": boolean,
@@ -45,13 +48,15 @@ Output ONLY valid JSON with this exact shape (no markdown, no backticks):
 }
 
 Rules:
-- Use only the fields listed above in filters. Omit or null any unused.
-- For short descriptive phrases (e.g. "rounded table", "oak desk", "red chair") put the phrase ONLY in semantic_query. Leave name_contains and description_contains null. Do not extract substrings into filters for descriptive queries—exact filter matches would miss synonyms (e.g. "rounded" vs "round") and kill results.
-- Only set name_contains or description_contains when the user explicitly asks for a specific text in name/description (e.g. "items with 'SKU-123' in the name").
-- semantic_query: use for any natural-language description of the item (shape, material, color, style, etc.). Keep it concise (e.g. "rounded table", "round wooden table oak").
-- If the user asks how many items, total value, low stock count, number of folders, or any summary/overview of the inventory, set intent to "inventory_question". Leave filters and semantic_query null.
-- If the request is too vague (e.g. "find it") or not about inventory, set intent to "other" or needs_clarification to true with a question.
-- Only set needs_clarification when the user explicitly asks to filter/sort by a field we don't have; never when they simply describe what they want in words.`
+- Default for short product-like phrases: if the user message looks like a product or item description (e.g. "headphones with active noise", "wireless mouse", "storage device"), set intent = "search_items" and semantic_query = the phrase (optionally normalized, e.g. "headphones active noise"). Do not set intent to "other" for these.
+- SKU lookup: always set sku_contains with the SKU/code the user mentioned; set semantic_query to null for pure SKU lookups.
+- Tag lookup: set tags to the tag(s) the user asked for (e.g. ["electronics"]). semantic_query can be null.
+- Price: set max_price for "cheaper than X", min_price for "over X". semantic_query can be null.
+- low_stock_only: set true for "low stock", "below minimum quantity", "need reorder". semantic_query = null.
+- For descriptive phrases only (e.g. "computer accessories", "rounded table", "headphones with active noise") put the phrase in semantic_query; leave name_contains/description_contains null.
+- If the user asks how many items, total value, low stock count, folders, or summary, set intent to "inventory_question". Leave filters and semantic_query null.
+- If too vague or not about inventory (e.g. "hello", "what's the weather"), set intent to "other". Do NOT use "other" for product descriptions.
+- Only set needs_clarification when the user explicitly asks to filter by a field we don't have; never when they describe what they want in words.`
 
 export async function extractSearchParams(
   message: string,
