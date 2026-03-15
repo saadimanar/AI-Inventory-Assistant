@@ -33,6 +33,10 @@ interface DashboardProps {
   onViewLowStock: () => void
   onViewAllItems: () => void
   onSelectItem: (item: InventoryItem) => void
+  /** When set, dashboard is filtered to these folders; used to show "Showing: ..." label. */
+  selectedFolderIds?: string[] | null
+  /** All folders (for resolving names when showing selected). */
+  allFolders?: Folder[]
 }
 
 function formatActivityDate(date: Date): string {
@@ -79,8 +83,18 @@ export function Dashboard({
   onViewLowStock,
   onViewAllItems,
   onSelectItem,
+  selectedFolderIds = null,
+  allFolders = [],
 }: DashboardProps) {
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all")
+
+  const showingLabel =
+    selectedFolderIds == null || selectedFolderIds.length === 0
+      ? "All Items"
+      : selectedFolderIds
+          .map((id) => allFolders.find((f) => f.id === id)?.name ?? id)
+          .filter(Boolean)
+          .join(", ")
 
   const activities = useMemo(() => {
     const entries: ActivityEntry[] = []
@@ -149,6 +163,11 @@ export function Dashboard({
 
   return (
     <div className="min-w-0 space-y-6 md:space-y-8">
+      {selectedFolderIds != null && selectedFolderIds.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Showing: <span className="font-medium text-foreground">{showingLabel}</span>
+        </p>
+      )}
       {/* Inventory Summary */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Inventory Summary</h2>

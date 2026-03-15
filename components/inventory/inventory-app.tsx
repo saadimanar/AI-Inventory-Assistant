@@ -15,6 +15,7 @@ import { ItemFormDialog } from "./item-form-dialog"
 import { FolderFormDialog } from "./folder-form-dialog"
 import { ItemDetailPanel } from "./item-detail-panel"
 import { DeleteDialog } from "./delete-dialog"
+import { DashboardFolderDrawer } from "./dashboard-folder-drawer"
 import { Settings } from "./settings"
 import { Button } from "@/components/ui/button"
 import type { InventoryItem, Folder, ViewMode, SortField, SortDirection } from "@/lib/inventory-types"
@@ -55,6 +56,9 @@ export function InventoryApp() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null)
+  const [folderDrawerOpen, setFolderDrawerOpen] = useState(false)
+  /** Dashboard folder filter: null = All Items, otherwise only these folder IDs. */
+  const [dashboardFolderIds, setDashboardFolderIds] = useState<string[] | null>(null)
 
   // Data state
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -167,6 +171,39 @@ export function InventoryApp() {
   const recentItems = useMemo(() => {
     return [...items].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 5)
   }, [items])
+
+  // Dashboard folder filter: restrict data to selected folders (null = all)
+  const dashboardItems = useMemo(() => {
+    if (dashboardFolderIds === null) return items
+    const set = new Set(dashboardFolderIds)
+    return items.filter((i) => i.folderId != null && set.has(i.folderId))
+  }, [items, dashboardFolderIds])
+
+  const dashboardStats = useMemo(() => {
+    const totalItems = dashboardItems.reduce((sum, i) => sum + i.quantity, 0)
+    const totalValue = dashboardItems.reduce((sum, i) => sum + i.quantity * i.price, 0)
+    const lowStockCount = dashboardItems.filter((i) => i.quantity <= i.minQuantity).length
+    const totalFolders =
+      dashboardFolderIds === null ? folders.length : dashboardFolderIds.length
+    return { totalItems, totalValue, lowStockItems: lowStockCount, totalFolders }
+  }, [dashboardItems, dashboardFolderIds, folders.length])
+
+  const dashboardLowStockItems = useMemo(() => {
+    const ids = new Set(dashboardItems.map((i) => i.id))
+    return lowStockItems.filter((i) => ids.has(i.id))
+  }, [lowStockItems, dashboardItems])
+
+  const dashboardRecentItems = useMemo(() => {
+    return [...dashboardItems]
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .slice(0, 5)
+  }, [dashboardItems])
+
+  const dashboardFolders = useMemo(() => {
+    if (dashboardFolderIds === null) return folders
+    const set = new Set(dashboardFolderIds)
+    return folders.filter((f) => set.has(f.id))
+  }, [folders, dashboardFolderIds])
 
   // Handlers
   const handleAddItem = () => {
@@ -326,6 +363,7 @@ export function InventoryApp() {
                   variant="outline"
                   size="default"
                   className="ms-auto min-h-[44px] shrink-0 rounded-lg border-border hover:bg-accent mac-transition sm:min-h-0"
+                  onClick={() => setFolderDrawerOpen(true)}
                 >
                   <SetFoldersIcon className="me-2 h-5 w-5" />
                   Set Folders
@@ -348,15 +386,17 @@ export function InventoryApp() {
           {currentView === "dashboard" && (
             <ContentWindow className="overflow-y-auto">
               <Dashboard
-                stats={stats}
-                lowStockItems={lowStockItems}
-                recentItems={recentItems}
-                items={items}
-                folders={folders}
+                stats={dashboardStats}
+                lowStockItems={dashboardLowStockItems}
+                recentItems={dashboardRecentItems}
+                items={dashboardItems}
+                folders={dashboardFolders}
                 userDisplayName={userDisplayName}
                 onViewLowStock={() => setCurrentView("low-stock")}
                 onViewAllItems={() => setCurrentView("all-items")}
                 onSelectItem={handleSelectItem}
+                selectedFolderIds={dashboardFolderIds}
+                allFolders={folders}
               />
             </ContentWindow>
           )}
@@ -416,6 +456,14 @@ export function InventoryApp() {
         title="Delete Item"
         description={`Are you sure you want to delete "${itemToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleConfirmDelete}
+      />
+
+      <DashboardFolderDrawer
+        open={folderDrawerOpen}
+        onOpenChange={setFolderDrawerOpen}
+        folders={folders}
+        appliedSelection={dashboardFolderIds}
+        onApply={setDashboardFolderIds}
       />
     </AppShell>
   )
