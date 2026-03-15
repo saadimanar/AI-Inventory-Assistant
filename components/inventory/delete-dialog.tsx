@@ -1,6 +1,5 @@
 "use client"
 
-import { AlertTriangle } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +24,6 @@ export function DeleteDialog({ open, onOpenChange, title, description, onConfirm
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-            <AlertTriangle className="h-6 w-6 text-destructive" />
-          </div>
           <AlertDialogTitle className="text-center">{title}</AlertDialogTitle>
           <AlertDialogDescription className="text-center">{description}</AlertDialogDescription>
         </AlertDialogHeader>

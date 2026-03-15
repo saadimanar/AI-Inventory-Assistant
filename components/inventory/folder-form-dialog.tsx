@@ -65,7 +65,9 @@ export function FolderFormDialog({ open, onOpenChange, folder, folders, onSave }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData)
+    const trimmedName = formData.name.trim()
+    if (!trimmedName) return
+    onSave({ ...formData, name: trimmedName })
     onOpenChange(false)
   }
 

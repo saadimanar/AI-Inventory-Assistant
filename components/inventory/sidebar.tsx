@@ -14,11 +14,20 @@ import {
   X,
   PanelLeftClose,
   PanelLeft,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { Folder } from "@/lib/inventory-types"
 
 interface SidebarProps {
@@ -29,6 +38,8 @@ interface SidebarProps {
   onViewChange: (view: string) => void
   onFolderSelect: (folderId: string | null) => void
   onAddFolder: () => void
+  onRenameFolder?: (folder: Folder) => void
+  onDeleteFolder?: (folder: Folder) => void
   /** When set, "Advanced Search" is a Link to this href; otherwise uses onOpenChatSearch */
   aiSearchHref?: string
   onOpenChatSearch?: () => void
@@ -44,6 +55,8 @@ export function Sidebar({
   onViewChange,
   onFolderSelect,
   onAddFolder,
+  onRenameFolder,
+  onDeleteFolder,
   aiSearchHref,
   onOpenChatSearch,
   isSidebarCollapsed = false,
@@ -267,6 +280,8 @@ export function Sidebar({
                       onViewChange("folder")
                       setIsOpen(false)
                     }}
+                    onRenameFolder={onRenameFolder}
+                    onDeleteFolder={onDeleteFolder}
                   />
                 )
               })}
@@ -302,39 +317,84 @@ interface FolderItemProps {
   isSelected: boolean
   selectedFolderId: string | null
   onSelect: (id: string) => void
+  onRenameFolder?: (folder: Folder) => void
+  onDeleteFolder?: (folder: Folder) => void
 }
 
-function FolderItem({ folder, children, isSelected, selectedFolderId, onSelect }: FolderItemProps) {
+function FolderItem({
+  folder,
+  children,
+  isSelected,
+  selectedFolderId,
+  onSelect,
+  onRenameFolder,
+  onDeleteFolder,
+}: FolderItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const hasChildren = children.length > 0
+  const showActions = Boolean(onRenameFolder || onDeleteFolder)
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => onSelect(folder.id)}
+      <div
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm mac-transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm mac-transition focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
           isSelected ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
         )}
       >
-        {hasChildren && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsExpanded(!isExpanded)
-            }}
-            className="rounded p-0.5 hover:bg-accent"
-            aria-expanded={isExpanded}
-          >
-            <ChevronRight className={cn("h-3 w-3 transition-transform duration-150", isExpanded && "rotate-90")} />
-          </button>
+        <button
+          type="button"
+          onClick={() => onSelect(folder.id)}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md py-0.5 text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          )}
+        >
+          {hasChildren && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(!isExpanded)
+              }}
+              className="rounded p-0.5 hover:bg-accent"
+              aria-expanded={isExpanded}
+            >
+              <ChevronRight className={cn("h-3 w-3 transition-transform duration-150", isExpanded && "rotate-90")} />
+            </button>
+          )}
+          <div className="h-3 w-3 shrink-0 rounded" style={{ backgroundColor: folder.color }} />
+          <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+        </button>
+        {showActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 rounded-md opacity-70 hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Actions for ${folder.name}`}
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={4}>
+              {onRenameFolder && (
+                <DropdownMenuItem onClick={() => onRenameFolder(folder)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Rename
+                </DropdownMenuItem>
+              )}
+              {onDeleteFolder && (
+                <DropdownMenuItem variant="destructive" onClick={() => onDeleteFolder(folder)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-        <div className="h-3 w-3 shrink-0 rounded" style={{ backgroundColor: folder.color }} />
-        <span className="min-w-0 flex-1 truncate text-start">{folder.name}</span>
-        <span className="shrink-0 text-xs text-muted-foreground">{folder.itemCount}</span>
-      </button>
+      </div>
 
       {hasChildren && isExpanded && (
         <div className="ms-4 mt-0.5 space-y-0.5">
@@ -346,6 +406,8 @@ function FolderItem({ folder, children, isSelected, selectedFolderId, onSelect }
               isSelected={selectedFolderId === child.id}
               selectedFolderId={selectedFolderId}
               onSelect={onSelect}
+              onRenameFolder={onRenameFolder}
+              onDeleteFolder={onDeleteFolder}
             />
           ))}
         </div>

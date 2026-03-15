@@ -56,6 +56,8 @@ export function InventoryApp() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null)
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null)
+  const [folderDeleteDialogOpen, setFolderDeleteDialogOpen] = useState(false)
   const [folderDrawerOpen, setFolderDrawerOpen] = useState(false)
   /** Dashboard folder filter: null = All Items, otherwise only these folder IDs. */
   const [dashboardFolderIds, setDashboardFolderIds] = useState<string[] | null>(null)
@@ -269,6 +271,33 @@ export function InventoryApp() {
     setFolderFormOpen(true)
   }
 
+  const handleRenameFolder = (folder: Folder) => {
+    setEditingFolder(folder)
+    setFolderFormOpen(true)
+  }
+
+  const handleDeleteFolder = (folder: Folder) => {
+    setFolderToDelete(folder)
+    setFolderDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDeleteFolder = async () => {
+    if (!folderToDelete) return
+    try {
+      await deleteFolder(folderToDelete.id)
+      if (currentFolderId === folderToDelete.id) {
+        setCurrentFolderId(null)
+        setCurrentView("dashboard")
+      }
+      await loadData()
+    } catch (error) {
+      console.error("Error deleting folder:", error)
+      toast.error("Failed to delete folder")
+    }
+    setFolderDeleteDialogOpen(false)
+    setFolderToDelete(null)
+  }
+
   const handleSaveFolder = async (data: Omit<Folder, "id" | "createdAt" | "itemCount">) => {
     try {
       if (editingFolder) {
@@ -338,6 +367,8 @@ export function InventoryApp() {
         onViewChange={handleViewChange}
         onFolderSelect={setCurrentFolderId}
         onAddFolder={handleAddFolder}
+        onRenameFolder={handleRenameFolder}
+        onDeleteFolder={handleDeleteFolder}
         aiSearchHref="/ai-search"
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={toggleSidebar}
@@ -456,6 +487,18 @@ export function InventoryApp() {
         title="Delete Item"
         description={`Are you sure you want to delete "${itemToDelete?.name}"? This action cannot be undone.`}
         onConfirm={handleConfirmDelete}
+      />
+
+      <DeleteDialog
+        open={folderDeleteDialogOpen}
+        onOpenChange={setFolderDeleteDialogOpen}
+        title="Delete folder"
+        description={
+          folderToDelete
+            ? `Are you sure you want to delete "${folderToDelete.name}"? Items in this folder will be moved to no folder.`
+            : ""
+        }
+        onConfirm={handleConfirmDeleteFolder}
       />
 
       <DashboardFolderDrawer
