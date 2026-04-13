@@ -10,6 +10,7 @@ import { getFolders, getLowStockItems } from "@/lib/inventory-store"
 import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed"
 import type { Folder } from "@/lib/inventory-types"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/utils/supabase/client"
 
 export default function AiSearchRoute() {
   const router = useRouter()
@@ -17,6 +18,20 @@ export default function AiSearchRoute() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [lowStockCount, setLowStockCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id ?? null)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -77,7 +92,7 @@ export default function AiSearchRoute() {
           isSidebarCollapsed && "lg:ms-16"
         )}
       >
-        <AiSearchPage folders={folders} />
+        <AiSearchPage folders={folders} userId={userId} />
       </main>
     </AppShell>
   )

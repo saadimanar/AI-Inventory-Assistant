@@ -12,10 +12,16 @@ import { ChatSearchResultCard } from "./chat-search-result-card"
 
 interface AiSearchPageProps {
   folders: Folder[]
+  /** Per-user localStorage namespace; null = guest bucket until auth resolves. */
+  userId: string | null
   onSelectItem?: (item: ChatSearchResultItem) => void
 }
 
-export function AiSearchPage({ folders, onSelectItem }: AiSearchPageProps) {
+export function AiSearchPage({
+  folders,
+  userId,
+  onSelectItem,
+}: AiSearchPageProps) {
   const router = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -26,7 +32,7 @@ export function AiSearchPage({ folders, onSelectItem }: AiSearchPageProps) {
     loading,
     sendMessage,
     clearMessages,
-  } = useChatSearch()
+  } = useChatSearch(userId)
 
   useEffect(() => {
     if (messages.length > 0 && scrollRef.current) {

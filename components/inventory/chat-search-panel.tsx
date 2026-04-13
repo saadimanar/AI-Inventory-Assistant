@@ -15,6 +15,8 @@ interface ChatSearchPanelProps {
   open: boolean
   onClose: () => void
   folders: Folder[]
+  /** Per-user localStorage namespace; null = guest. */
+  userId: string | null
   onSelectItem?: (item: ChatSearchResultItem) => void
 }
 
@@ -22,9 +24,10 @@ export function ChatSearchPanel({
   open,
   onClose,
   folders,
+  userId,
   onSelectItem,
 }: ChatSearchPanelProps) {
-  const { messages, input, setInput, loading, sendMessage } = useChatSearch()
+  const { messages, input, setInput, loading, sendMessage } = useChatSearch(userId)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

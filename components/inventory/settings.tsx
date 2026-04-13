@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
+import { clearChatSearchStorageForSignOut } from "@/lib/use-chat-search"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
@@ -44,6 +45,7 @@ export function Settings() {
 
   const handleSignOut = async () => {
     try {
+      clearChatSearchStorageForSignOut(user?.id ?? null)
       await supabase.auth.signOut()
       router.push("/auth/login")
       router.refresh()

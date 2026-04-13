@@ -4,7 +4,23 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import type { ChatSearchResultItem } from "@/lib/chat-search-types"
 import type { ExtractedFilters } from "@/lib/chat-search-types"
 
-const STORAGE_KEY = "inventory-ai-search-messages"
+const CHAT_SEARCH_PREFIX = "inventory-ai-search-messages:"
+
+export function getChatSearchStorageKey(userId: string | null): string {
+  if (userId) return `${CHAT_SEARCH_PREFIX}${userId}`
+  return `${CHAT_SEARCH_PREFIX}guest`
+}
+
+/** Removes guest bucket and the given user's key. */
+export function clearChatSearchStorageForSignOut(userId: string | null) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.removeItem(getChatSearchStorageKey(null))
+    if (userId) localStorage.removeItem(getChatSearchStorageKey(userId))
+  } catch {
+    // ignore
+  }
+}
 
 export type ChatMessage =
   | { role: "user"; content: string }
@@ -15,10 +31,10 @@ export type ChatMessage =
       appliedFilters?: Record<string, unknown>
     }
 
-function loadPersistedMessages(): ChatMessage[] {
+function loadPersistedMessages(storageKey: string): ChatMessage[] {
   if (typeof window === "undefined") return []
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
@@ -28,31 +44,39 @@ function loadPersistedMessages(): ChatMessage[] {
   }
 }
 
-function saveMessages(messages: ChatMessage[]) {
+function saveMessages(storageKey: string, messages: ChatMessage[]) {
   if (typeof window === "undefined") return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+    localStorage.setItem(storageKey, JSON.stringify(messages))
   } catch {
     // ignore
   }
 }
 
-export function useChatSearch() {
+export function useChatSearch(userId: string | null) {
+  const storageKey = getChatSearchStorageKey(userId)
+  const storageKeyRef = useRef(storageKey)
+  storageKeyRef.current = storageKey
+
+  const skipNextPersist = useRef(true)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const lastAppliedFilters = useRef<Record<string, unknown> | null>(null)
-  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    setMessages(loadPersistedMessages())
-    setHydrated(true)
-  }, [])
+    skipNextPersist.current = true
+    setMessages(loadPersistedMessages(storageKey))
+    lastAppliedFilters.current = null
+  }, [storageKey])
 
   useEffect(() => {
-    if (!hydrated) return
-    saveMessages(messages)
-  }, [hydrated, messages])
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false
+      return
+    }
+    saveMessages(storageKeyRef.current, messages)
+  }, [messages])
 
   const sendMessage = useCallback(async () => {
     const text = input.trim()
@@ -138,7 +162,7 @@ export function useChatSearch() {
     lastAppliedFilters.current = null
     if (typeof window !== "undefined") {
       try {
-        localStorage.removeItem(STORAGE_KEY)
+        localStorage.removeItem(storageKeyRef.current)
       } catch {
         // ignore
       }
