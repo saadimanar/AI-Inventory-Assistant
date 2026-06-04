@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import type { InventoryItem, Folder } from "@/lib/inventory-types"
-import { createClient } from "@/utils/supabase/client"
 
 interface ItemFormDialogProps {
   open: boolean
@@ -98,53 +97,16 @@ export function ItemFormDialog({ open, onOpenChange, item, folders, onSave }: It
     try {
       let finalImageUrl = formData.imageUrl
 
-      // Upload new image if a file was selected
       if (imageFile) {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
-          throw new Error("User not authenticated")
+        if (imageFile.size > 512_000) {
+          throw new Error("Image must be 512 KB or smaller for local storage")
         }
-
-        // Generate unique filename
-        const fileExt = imageFile.name.split(".").pop()
-        const fileName = `${user.id}/${item?.id || `temp-${Date.now()}`}/${Date.now()}.${fileExt}`
-        
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("item-images")
-          .upload(fileName, imageFile, {
-            cacheControl: "3600",
-            upsert: false,
-          })
-
-        if (uploadError) {
-          throw new Error(`Failed to upload image: ${uploadError.message}`)
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("item-images")
-          .getPublicUrl(fileName)
-
-        finalImageUrl = urlData.publicUrl
-
-        // If editing and had an old image, delete it
-        if (item?.imageUrl && item.imageUrl !== finalImageUrl) {
-          try {
-            const oldUrl = new URL(item.imageUrl)
-            const pathParts = oldUrl.pathname.split("/")
-            const pathIndex = pathParts.indexOf("item-images")
-            if (pathIndex !== -1) {
-              const oldImagePath = pathParts.slice(pathIndex + 1).join("/")
-              await supabase.storage.from("item-images").remove([oldImagePath])
-            }
-          } catch (err) {
-            console.error("Error deleting old image:", err)
-            // Don't fail if old image deletion fails
-          }
-        }
+        finalImageUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(new Error("Failed to read image file"))
+          reader.readAsDataURL(imageFile)
+        })
       }
 
       // Save item with the image URL

@@ -6,12 +6,14 @@ import { AppShell } from "@/components/inventory/app-shell"
 import { Sidebar } from "@/components/inventory/sidebar"
 import { AiSearchPage } from "@/components/inventory/ai-search-page"
 import { LoadingSkeleton } from "@/components/inventory/loading-skeleton"
-import { getFolders, getLowStockItems } from "@/lib/inventory-store"
+import {
+  fetchSessionUserId,
+  getFolders,
+  getLowStockItems,
+} from "@/lib/inventory-store"
 import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed"
 import type { Folder } from "@/lib/inventory-types"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/utils/supabase/client"
-
 export default function AiSearchRoute() {
   const router = useRouter()
   const { isSidebarCollapsed, toggleSidebar } = useSidebarCollapsed()
@@ -21,16 +23,7 @@ export default function AiSearchRoute() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id ?? null)
-    })
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null)
-    })
-    return () => subscription.unsubscribe()
+    fetchSessionUserId().then(setUserId)
   }, [])
 
   useEffect(() => {

@@ -1,0 +1,28 @@
+services:
+  postgres-dev:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local_dev_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres-dev
+    environment:
+      DATABASE_URL: postgres://postgres:local_dev_password@postgres-dev:5432/inventory_db
+      MOCK_USER_ID: "00000000-0000-0000-0000-000000000001"
+      MOCK_USER_DISPLAY_NAME: "Local Dev User"
+
+volumes:
+  postgres_dev_data:

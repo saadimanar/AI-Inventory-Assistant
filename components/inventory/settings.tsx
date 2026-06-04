@@ -8,10 +8,13 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/utils/supabase/client"
 import { clearChatSearchStorageForSignOut } from "@/lib/use-chat-search"
+import { clearSessionCookies } from "@/lib/auth-actions"
+import {
+  fetchSessionUserId,
+  getCurrentUserDisplayName,
+} from "@/lib/inventory-store"
 import { useRouter } from "next/navigation"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 export function Settings() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("light")
@@ -20,33 +23,24 @@ export function Settings() {
     email: false,
     browser: true,
   })
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
-    // Get initial user
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    Promise.all([fetchSessionUserId(), getCurrentUserDisplayName()])
+      .then(([id, name]) => {
+        setUserId(id)
+        setDisplayName(name)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSignOut = async () => {
     try {
-      clearChatSearchStorageForSignOut(user?.id ?? null)
-      await supabase.auth.signOut()
+      clearChatSearchStorageForSignOut(userId)
+      await clearSessionCookies()
       router.push("/auth/login")
       router.refresh()
     } catch (error) {
@@ -94,12 +88,20 @@ export function Settings() {
         <CardContent className="space-y-4">
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading...</div>
-          ) : user ? (
+          ) : userId ? (
             <>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Email</span>
-                  <span className="text-sm font-medium text-foreground">{user.email}</span>
+                  <span className="text-sm text-muted-foreground">Account</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {displayName ?? "Signed in"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">User ID</span>
+                  <span className="max-w-[12rem] truncate text-sm font-mono text-foreground">
+                    {userId}
+                  </span>
                 </div>
               </div>
               <Separator />

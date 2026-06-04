@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/utils/supabase/server"
+import { requireSessionUserId } from "@/lib/auth-session"
+import { query } from "@/lib/db"
 import { buildSearchText, getEmbedding } from "@/lib/embedding"
 
 /**
  * POST /api/items/[id]/embedding
  * Updates search_text and embedding for the given item (user must own it).
- * Call after create/update item to keep semantic search in sync.
  */
 export async function POST(
   _request: Request,
@@ -16,30 +16,32 @@ export async function POST(
     return NextResponse.json({ error: "Missing item id" }, { status: 400 })
   }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-  if (authError || !user) {
+  let userId: string
+  try {
+    userId = await requireSessionUserId()
+  } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: item, error: fetchError } = await supabase
-    .from("items")
-    .select("id, name, description, tags")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .single()
+  const { rows } = await query<{
+    id: string
+    name: string
+    description: string
+    tags: string[]
+  }>(
+    `SELECT id, name, description, tags FROM items WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  )
 
-  if (fetchError || !item) {
+  const item = rows[0]
+  if (!item) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 })
   }
 
   const searchText = buildSearchText({
     name: item.name ?? "",
     description: item.description ?? "",
-    tags: (item.tags as string[]) ?? [],
+    tags: item.tags ?? [],
   })
 
   let embedding: number[] | null = null
@@ -48,28 +50,20 @@ export async function POST(
       embedding = await getEmbedding(searchText)
     } catch (e) {
       console.error("Embedding generation failed:", e)
-      // Still update search_text so FTS works
     }
   }
 
-  const updates: { search_text: string; embedding?: string } = {
-    search_text: searchText,
-  }
   if (embedding) {
-    updates.embedding = `[${embedding.join(",")}]`
-  }
-
-  const { error: updateError } = await supabase
-    .from("items")
-    .update(updates)
-    .eq("id", id)
-    .eq("user_id", user.id)
-
-  if (updateError) {
-    console.error("Update embedding failed:", updateError)
-    return NextResponse.json(
-      { error: "Failed to update search index" },
-      { status: 500 }
+    const embeddingStr = `[${embedding.join(",")}]`
+    await query(
+      `UPDATE items SET search_text = $1, embedding = $2::vector(1536)
+       WHERE id = $3 AND user_id = $4`,
+      [searchText, embeddingStr, id, userId]
+    )
+  } else {
+    await query(
+      `UPDATE items SET search_text = $1 WHERE id = $2 AND user_id = $3`,
+      [searchText, id, userId]
     )
   }
 
