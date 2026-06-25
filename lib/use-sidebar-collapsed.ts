@@ -36,9 +36,5 @@ export function useSidebarCollapsed() {
     setSidebarCollapsedState((prev) => !prev)
   }, [])
 
-  const setSidebarCollapsed = useCallback((value: boolean) => {
-    setSidebarCollapsedState(value)
-  }, [])
-
-  return { isSidebarCollapsed, toggleSidebar, setSidebarCollapsed }
+  return { isSidebarCollapsed, toggleSidebar }
 }

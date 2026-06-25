@@ -40,9 +40,8 @@ interface SidebarProps {
   onAddFolder: () => void
   onRenameFolder?: (folder: Folder) => void
   onDeleteFolder?: (folder: Folder) => void
-  /** When set, "Advanced Search" is a Link to this href; otherwise uses onOpenChatSearch */
+  /** Link target for the Advanced Search nav item */
   aiSearchHref?: string
-  onOpenChatSearch?: () => void
   isSidebarCollapsed?: boolean
   onToggleSidebar?: () => void
 }
@@ -58,7 +57,6 @@ export function Sidebar({
   onRenameFolder,
   onDeleteFolder,
   aiSearchHref,
-  onOpenChatSearch,
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: SidebarProps) {
@@ -70,7 +68,7 @@ export function Sidebar({
 
   const rootFolders = filteredFolders.filter((f) => !f.parentId)
 
-  const showAiSearch = Boolean(aiSearchHref || onOpenChatSearch)
+  const showAiSearch = Boolean(aiSearchHref)
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "all-items", label: "All Items", icon: Package },
@@ -216,10 +214,7 @@ export function Sidebar({
                   key={item.id}
                   type="button"
                   onClick={() => {
-                    if (isAction && item.id === "chat-search" && onOpenChatSearch) {
-                      onOpenChatSearch()
-                      setIsOpen(false)
-                    } else if (!isAction) {
+                    if (!isAction) {
                       onViewChange(item.id)
                       setIsOpen(false)
                     }

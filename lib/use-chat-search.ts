@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { chatSearch } from "@/lib/api-client"
 import type { ChatSearchResultItem } from "@/lib/chat-search-types"
 import type { ExtractedFilters } from "@/lib/chat-search-types"
 
 const CHAT_SEARCH_PREFIX = "inventory-ai-search-messages:"
 
-export function getChatSearchStorageKey(userId: string | null): string {
+function getChatSearchStorageKey(userId: string | null): string {
   if (userId) return `${CHAT_SEARCH_PREFIX}${userId}`
   return `${CHAT_SEARCH_PREFIX}guest`
 }
@@ -22,13 +23,13 @@ export function clearChatSearchStorageForSignOut(userId: string | null) {
   }
 }
 
-export type ChatMessage =
+type ChatMessage =
   | { role: "user"; content: string }
   | {
       role: "assistant"
       content: string
       results?: ChatSearchResultItem[]
-      appliedFilters?: Record<string, unknown>
+      appliedFilters?: ExtractedFilters
     }
 
 function loadPersistedMessages(storageKey: string): ChatMessage[] {
@@ -62,7 +63,7 @@ export function useChatSearch(userId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const lastAppliedFilters = useRef<Record<string, unknown> | null>(null)
+  const lastAppliedFilters = useRef<ExtractedFilters | null>(null)
 
   useEffect(() => {
     skipNextPersist.current = true
@@ -87,28 +88,21 @@ export function useChatSearch(userId: string | null) {
     setLoading(true)
 
     try {
-      const res = await fetch("/api/chat/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          appliedFilters: lastAppliedFilters.current as ExtractedFilters | null,
-        }),
+      const data = await chatSearch({
+        message: text,
+        appliedFilters: lastAppliedFilters.current as ExtractedFilters | null,
       })
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
+      if ("error" in data) {
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: (err?.error as string) ?? "Search failed. Please try again.",
+            content: data.error ?? "Search failed. Please try again.",
           },
         ])
         return
       }
-
-      const data = await res.json()
 
       if (data.type === "clarify") {
         setMessages((prev) => [
@@ -171,7 +165,6 @@ export function useChatSearch(userId: string | null) {
 
   return {
     messages,
-    setMessages,
     input,
     setInput,
     loading,

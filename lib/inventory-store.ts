@@ -1,20 +1,18 @@
 /**
- * Client-safe entry points for inventory data access.
- * All persistence runs in Server Actions (`lib/inventory-actions.ts`).
+ * Client-side inventory API. All persistence is handled by the Python backend.
  */
 export {
   fetchSessionUserId,
   getCurrentUserDisplayName,
   getItems,
   getFolders,
-  getStats,
-  getItemsByFolder,
   getLowStockItems,
-  searchItems,
   addItem,
   updateItem,
   deleteItem,
   addFolder,
   updateFolder,
   deleteFolder,
-} from "@/lib/inventory-actions"
+  refreshItemEmbedding,
+  clearSession,
+} from "@/lib/api-client"

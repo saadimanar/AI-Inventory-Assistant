@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { clearChatSearchStorageForSignOut } from "@/lib/use-chat-search"
-import { clearSessionCookies } from "@/lib/auth-actions"
 import {
   fetchSessionUserId,
   getCurrentUserDisplayName,
+  clearSession,
 } from "@/lib/inventory-store"
 import { useRouter } from "next/navigation"
 
@@ -40,7 +40,7 @@ export function Settings() {
   const handleSignOut = async () => {
     try {
       clearChatSearchStorageForSignOut(userId)
-      await clearSessionCookies()
+      await clearSession()
       router.push("/auth/login")
       router.refresh()
     } catch (error) {

@@ -16,22 +16,6 @@ export interface ExtractedFilters {
   low_stock_only?: boolean | null
 }
 
-export interface ChatSearchExtraction {
-  intent: "search_items" | "inventory_question" | "other"
-  filters: ExtractedFilters
-  semantic_query: string | null
-  needs_clarification: boolean
-  clarifying_question: string | null
-}
-
-export interface InventoryStatsSummary {
-  totalItems: number
-  totalValue: number
-  lowStockCount: number
-  folderCount: number
-  uniqueProductCount: number
-}
-
 export interface ChatSearchResultItem {
   id: string
   name: string

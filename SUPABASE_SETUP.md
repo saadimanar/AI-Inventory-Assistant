@@ -19,7 +19,10 @@
      ```
      NEXT_PUBLIC_SUPABASE_URL=your_project_url_here
      NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+     NEXT_PUBLIC_API_URL=http://localhost:8000
+     SUPABASE_JWT_SECRET=your_jwt_secret_here
      ```
+   - The **JWT Secret** is on the same API settings page (used by the Python backend to validate sessions).
 
 4. **Configure Redirect URLs**
    - In Supabase Dashboard: Authentication → URL Configuration
@@ -92,6 +95,14 @@ export default function Component() {
   return <div>Hello {user?.email}</div>
 }
 ```
+
+## Python API integration
+
+The inventory backend (`search-service/`) validates Supabase access tokens from the browser:
+
+- Frontend sends `Authorization: Bearer <access_token>` on every API call (`lib/api-client.ts`).
+- Python verifies the JWT with `SUPABASE_JWT_SECRET` and scopes all data by the token's `sub` (user id).
+- For local Docker dev without login, set `ALLOW_MOCK_AUTH=true` and `NEXT_PUBLIC_ALLOW_MOCK_AUTH=true`.
 
 ## Next Steps
 

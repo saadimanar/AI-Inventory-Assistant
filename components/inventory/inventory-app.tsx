@@ -23,17 +23,15 @@ import { cn } from "@/lib/utils"
 import {
   getItems,
   getFolders,
-  getStats,
   getLowStockItems,
-  searchItems,
   addItem,
   updateItem,
   deleteItem,
   addFolder,
   updateFolder,
   deleteFolder,
-  getItemsByFolder,
   getCurrentUserDisplayName,
+  refreshItemEmbedding,
 } from "@/lib/inventory-store"
 import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed"
 
@@ -65,7 +63,6 @@ export function InventoryApp() {
   // Data state
   const [items, setItems] = useState<InventoryItem[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
-  const [stats, setStats] = useState({ totalItems: 0, totalValue: 0, lowStockItems: 0, totalFolders: 0 })
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
   const [userDisplayName, setUserDisplayName] = useState("User")
   const [isLoading, setIsLoading] = useState(true)
@@ -74,16 +71,14 @@ export function InventoryApp() {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
-      const [itemsData, foldersData, statsData, lowStockData, displayName] = await Promise.all([
+      const [itemsData, foldersData, lowStockData, displayName] = await Promise.all([
         getItems(),
         getFolders(),
-        getStats(),
         getLowStockItems(),
         getCurrentUserDisplayName(),
       ])
       setItems(itemsData)
       setFolders(foldersData)
-      setStats(statsData)
       setLowStockItems(lowStockData)
       setUserDisplayName(displayName)
     } catch (error) {
@@ -255,7 +250,7 @@ export function InventoryApp() {
       }
       await loadData()
       // Update search index (embedding + search_text) after every create/update so AI search works
-      fetch(`/api/items/${savedId}/embedding`, { method: "POST" }).catch((err) => {
+      refreshItemEmbedding(savedId).catch((err) => {
         if (process.env.NODE_ENV === "development") {
           console.warn("[inventory] Search index update failed for item", savedId, err)
         }

@@ -11,6 +11,45 @@ services:
       - postgres_dev_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
 
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  search-service:
+    build:
+      context: ./search-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-dev:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:local_dev_password@postgres-dev:5432/inventory_db
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENSEARCH_URL: http://opensearch:9200
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      ALLOW_MOCK_AUTH: "true"
+      MOCK_USER_ID: "00000000-0000-0000-0000-000000000001"
+      MOCK_USER_DISPLAY_NAME: "Local Dev User"
+      CORS_ORIGINS: "http://localhost:3000"
+
   app:
     build:
       context: .
@@ -18,11 +57,13 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - postgres-dev
+      - search-service
     environment:
-      DATABASE_URL: postgres://postgres:local_dev_password@postgres-dev:5432/inventory_db
-      MOCK_USER_ID: "00000000-0000-0000-0000-000000000001"
-      MOCK_USER_DISPLAY_NAME: "Local Dev User"
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_ALLOW_MOCK_AUTH: "true"
 
 volumes:
   postgres_dev_data:
+  opensearch_data:

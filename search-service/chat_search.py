@@ -1,6 +1,10 @@
-import type { ChatSearchExtraction, ExtractedFilters } from "./chat-search-types"
+import json
+import os
+from typing import Any, Optional
 
-const SYSTEM_PROMPT = `You are a strict JSON extractor for an inventory app. The user can either SEARCH for items or ask GENERAL QUESTIONS about their inventory.
+from openai import OpenAI
+
+SYSTEM_PROMPT = """You are a strict JSON extractor for an inventory app. The user can either SEARCH for items or ask GENERAL QUESTIONS about their inventory.
 
 INTENTS:
 - "search_items": user wants to find/list items. This includes:
@@ -56,54 +60,99 @@ Rules:
 - For descriptive phrases only (e.g. "computer accessories", "rounded table", "headphones with active noise") put the phrase in semantic_query; leave name_contains/description_contains null.
 - If the user asks how many items, total value, low stock count, folders, or summary, set intent to "inventory_question". Leave filters and semantic_query null.
 - If too vague or not about inventory (e.g. "hello", "what's the weather"), set intent to "other". Do NOT use "other" for product descriptions.
-- Only set needs_clarification when the user explicitly asks to filter by a field we don't have; never when they describe what they want in words.`
+- Only set needs_clarification when the user explicitly asks to filter by a field we don't have; never when they describe what they want in words."""
 
-export async function extractSearchParams(
-  message: string,
-  previousFilters?: ExtractedFilters | null
-): Promise<ChatSearchExtraction> {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
+
+def extract_search_params(
+    message: str,
+    previous_filters: Optional[dict[str, Any]] = None,
+    client: Optional[OpenAI] = None,
+) -> dict[str, Any]:
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return {
+            "intent": "search_items",
+            "filters": previous_filters or {},
+            "semantic_query": message.strip() or None,
+            "needs_clarification": False,
+            "clarifying_question": None,
+        }
+
+    user_content = message
+    if previous_filters:
+        user_content = (
+            f"Previous applied filters (for follow-up): {json.dumps(previous_filters)}\n\n"
+            f"User message: {message}"
+        )
+
+    if client is None:
+        client = OpenAI(api_key=api_key)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.1,
+    )
+
+    raw = (response.choices[0].message.content or "").strip()
+    if not raw:
+        raise ValueError("Empty LLM response")
+
+    parsed = json.loads(raw)
+    if not parsed.get("filters"):
+        parsed["filters"] = {}
+    return parsed
+
+
+def has_strong_structured_filters(filters: dict[str, Any]) -> bool:
+    return bool(
+        (isinstance(filters.get("sku_contains"), str) and filters["sku_contains"].strip())
+        or (isinstance(filters.get("tags"), list) and len(filters["tags"]) > 0)
+        or filters.get("low_stock_only") is True
+        or (
+            isinstance(filters.get("max_price"), (int, float))
+            and not isinstance(filters.get("max_price"), bool)
+        )
+        or (
+            isinstance(filters.get("min_price"), (int, float))
+            and not isinstance(filters.get("min_price"), bool)
+        )
+        or (
+            isinstance(filters.get("max_quantity"), int)
+            and not isinstance(filters.get("max_quantity"), bool)
+        )
+        or (
+            isinstance(filters.get("min_quantity"), int)
+            and not isinstance(filters.get("min_quantity"), bool)
+        )
+        or (
+            isinstance(filters.get("name_contains"), str)
+            and filters["name_contains"].strip()
+        )
+        or (
+            isinstance(filters.get("description_contains"), str)
+            and filters["description_contains"].strip()
+        )
+        or (
+            isinstance(filters.get("folder_id"), str) and filters["folder_id"].strip()
+        )
+    )
+
+
+def build_applied_filters(filters: dict[str, Any]) -> dict[str, Any]:
     return {
-      intent: "search_items",
-      filters: previousFilters || {},
-      semantic_query: message.trim() || null,
-      needs_clarification: false,
-      clarifying_question: null,
+        "name_contains": filters.get("name_contains"),
+        "description_contains": filters.get("description_contains"),
+        "tags": filters.get("tags"),
+        "folder_id": filters.get("folder_id"),
+        "max_price": filters.get("max_price"),
+        "min_price": filters.get("min_price"),
+        "max_quantity": filters.get("max_quantity"),
+        "min_quantity": filters.get("min_quantity"),
+        "sku_contains": filters.get("sku_contains"),
+        "low_stock_only": filters.get("low_stock_only"),
     }
-  }
-
-  const userContent = previousFilters
-    ? `Previous applied filters (for follow-up): ${JSON.stringify(previousFilters)}\n\nUser message: ${message}`
-    : message
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`LLM request failed: ${res.status} ${err}`)
-  }
-
-  const data = (await res.json()) as { choices: { message: { content: string } }[] }
-  const raw = data.choices?.[0]?.message?.content?.trim()
-  if (!raw) throw new Error("Empty LLM response")
-
-  const parsed = JSON.parse(raw) as ChatSearchExtraction
-  if (!parsed.filters) parsed.filters = {}
-  return parsed
-}
