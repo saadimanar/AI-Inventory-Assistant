@@ -44,11 +44,12 @@ services:
       DATABASE_URL: postgresql://postgres:local_dev_password@postgres-dev:5432/inventory_db
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENSEARCH_URL: http://opensearch:9200
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
-      ALLOW_MOCK_AUTH: "true"
+      ALLOW_MOCK_AUTH: "false"
       MOCK_USER_ID: "00000000-0000-0000-0000-000000000001"
       MOCK_USER_DISPLAY_NAME: "Local Dev User"
-      CORS_ORIGINS: "http://localhost:3000"
+      CORS_ORIGINS: "https://ai-inventory-assistant-frontend.vercel.app,http://localhost:3000"
 
   app:
     build:
