@@ -6,6 +6,18 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 
 ---
 
+## Repository layout
+
+```
+├── frontend/          # Next.js UI (deploy to Vercel)
+├── backend/           # FastAPI API (containerize for AWS)
+├── docker/            # Local Postgres init scripts
+├── docker-compose.yml # Full local stack
+└── scripts/           # Repo maintenance scripts
+```
+
+---
+
 ## Highlights
 
 - **AI natural-language search** — Query inventory in plain language; intent and filters extracted by LLM.
@@ -21,7 +33,7 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 | Layer | Technologies |
 |-------|--------------|
 | **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind, Radix UI |
-| **Backend** | Python FastAPI (`search-service/`), SQLAlchemy, OpenAI |
+| **Backend** | Python FastAPI (`backend/`), SQLAlchemy, OpenAI |
 | **Database** | PostgreSQL + pgvector (local Docker or Supabase) |
 | **Auth** | Supabase Auth (JWT validated in Python) |
 
@@ -31,7 +43,7 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 
 ```
 Browser (Next.js UI)
-    → lib/api-client.ts  (Authorization: Bearer <supabase_token>)
+    → frontend/lib/api-client.ts  (Authorization: Bearer <supabase_token>)
     → Python API :8000
     → PostgreSQL + pgvector (search_items_hybrid RPC)
 ```
@@ -73,14 +85,15 @@ docker compose up --build
 
 ```bash
 # Terminal 1 — database + API
-docker compose up postgres-dev search-service
+docker compose up postgres-dev api
 
 # Terminal 2 — frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-Set in `.env.local`:
+Set in `frontend/.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
@@ -89,7 +102,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_ALLOW_MOCK_AUTH=true
 ```
 
-Run Supabase migrations (`supabase-migration.sql`, then `supabase-chat-search-migration.sql`) when using Supabase-hosted Postgres.
+Run Supabase migrations (`backend/migrations/supabase-migration.sql`, then `backend/migrations/supabase-chat-search-migration.sql`) when using Supabase-hosted Postgres.
+
+---
+
+## Deployment
+
+| Target | Directory | Notes |
+|--------|-----------|-------|
+| **Vercel** | `frontend/` | Set Root Directory to `frontend` in project settings |
+| **AWS (ECS/Fargate, etc.)** | `backend/` | `docker build -t inventory-api ./backend` |
 
 ---
 

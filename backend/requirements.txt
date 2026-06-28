@@ -6,3 +6,4 @@ pydantic
 openai
 PyJWT
 opensearch-py
+gunicorn

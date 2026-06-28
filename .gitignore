@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Monorepo — frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# Monorepo — backend
+backend/__pycache__/
+backend/.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# Legacy build artifacts (pre-monorepo)
+/.next/
+/node_modules/

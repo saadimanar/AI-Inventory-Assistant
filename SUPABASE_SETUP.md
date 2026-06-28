@@ -14,7 +14,7 @@
      - Anon/Public Key (under "Project API keys" → "anon" or "public")
 
 3. **Create Environment File**
-   - Create a `.env.local` file in the root directory
+   - Create a `.env.local` file in the `frontend/` directory
    - Add your credentials:
      ```
      NEXT_PUBLIC_SUPABASE_URL=your_project_url_here
@@ -32,6 +32,8 @@
 
 5. **Start the App**
    ```bash
+   cd frontend
+   npm install
    npm run dev
    ```
 
@@ -47,6 +49,7 @@
 ## Project Structure
 
 ```
+frontend/
 ├── app/
 │   ├── auth/
 │   │   ├── login/          # Login page
@@ -98,9 +101,9 @@ export default function Component() {
 
 ## Python API integration
 
-The inventory backend (`search-service/`) validates Supabase access tokens from the browser:
+The inventory backend (`backend/`) validates Supabase access tokens from the browser:
 
-- Frontend sends `Authorization: Bearer <access_token>` on every API call (`lib/api-client.ts`).
+- Frontend sends `Authorization: Bearer <access_token>` on every API call (`frontend/lib/api-client.ts`).
 - Python verifies the JWT with `SUPABASE_JWT_SECRET` and scopes all data by the token's `sub` (user id).
 - For local Docker dev without login, set `ALLOW_MOCK_AUTH=true` and `NEXT_PUBLIC_ALLOW_MOCK_AUTH=true`.
 
