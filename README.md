@@ -2,7 +2,7 @@
 
 **AI-powered inventory platform with semantic + hybrid search.**
 
-Manage items and folders in a modern UI, then query inventory in plain language. Semantic vector search (OpenAI embeddings + pgvector) and structured filters run in PostgreSQL via a Python API.
+Manage items and folders in a modern UI, then query inventory in plain language. Semantic hybrid search (OpenAI embeddings + OpenSearch) and structured filters (PostgreSQL) run via a Python API.
 
 ---
 
@@ -11,8 +11,7 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 ```
 ├── frontend/          # Next.js UI (deploy to Vercel)
 ├── backend/           # FastAPI API (containerize for AWS)
-├── docker/            # Local Postgres init scripts
-├── docker-compose.yml # Full local stack
+├── docker-compose.yml # Local API + OpenSearch stack
 └── scripts/           # Repo maintenance scripts
 ```
 
@@ -21,10 +20,11 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 ## Highlights
 
 - **AI natural-language search** — Query inventory in plain language; intent and filters extracted by LLM.
-- **Hybrid vector (pgvector) + FTS** — Cosine similarity when embeddings exist, full-text fallback on `search_text`.
-- **Python backend** — FastAPI service handles CRUD, embeddings, LLM extraction, hybrid search, and JWT auth.
+- **Hybrid search (OpenSearch)** — Text + vector similarity on item descriptions; results loaded from PostgreSQL.
+- **Structured filters (PostgreSQL)** — SKU, price, tags, folder, and low-stock queries run as SQL.
+- **Python backend** — FastAPI service handles CRUD, OpenSearch indexing, LLM extraction, search, and JWT auth.
 - **Supabase Auth** — Browser session tokens validated by the Python API (`SUPABASE_JWT_SECRET`).
-- **Async embedding indexing** — Embeddings refreshed after item save (fire-and-forget).
+- **Async search indexing** — OpenSearch index refreshed after item save (fire-and-forget).
 
 ---
 
@@ -34,7 +34,8 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 |-------|--------------|
 | **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind, Radix UI |
 | **Backend** | Python FastAPI (`backend/`), SQLAlchemy, OpenAI |
-| **Database** | PostgreSQL + pgvector (local Docker or Supabase) |
+| **Database** | Supabase PostgreSQL — inventory source of truth |
+| **Search** | OpenSearch — hybrid text + vector search on item descriptions |
 | **Auth** | Supabase Auth (JWT validated in Python) |
 
 ---
@@ -45,11 +46,13 @@ Manage items and folders in a modern UI, then query inventory in plain language.
 Browser (Next.js UI)
     → frontend/lib/api-client.ts  (Authorization: Bearer <supabase_token>)
     → Python API :8000
-    → PostgreSQL + pgvector (search_items_hybrid RPC)
+        → PostgreSQL (CRUD, structured filters, inventory summaries)
+        → OpenSearch (hybrid semantic search on descriptions)
+        → OpenAI (embeddings + chat intent extraction)
 ```
 
 - **Frontend** — UI only; no server actions or Next.js API routes for inventory data.
-- **Python API** — All persistence, embeddings, chat search orchestration, and auth.
+- **Python API** — All persistence, OpenSearch indexing, chat search orchestration, and auth.
 - **Auth** — Supabase login in the browser; Python verifies JWT and scopes every query by `sub`.
 
 ---
@@ -61,17 +64,15 @@ git clone https://github.com/<your-org>/AI-Inventory-Assistant.git
 cd AI-Inventory-Assistant
 ```
 
-Create `.env` in the project root:
+Copy `.env.example` to `.env` in the project root and fill in your values:
 
 ```bash
-OPENAI_API_KEY=sk-...
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-# Optional for production auth (Supabase Dashboard → API → JWT Secret):
-SUPABASE_JWT_SECRET=your-jwt-secret
+cp .env.example .env
 ```
 
-Local dev uses mock auth by default (`ALLOW_MOCK_AUTH=true` in `docker-compose.yml`).
+Required variables include `DATABASE_URL` (Supabase Postgres URI), `OPENAI_API_KEY`, and Supabase auth keys. Docker Compose loads `.env` automatically for variable substitution.
+
+Run `backend/migrations/supabase-migration.sql` in the Supabase SQL editor before first use.
 
 ```bash
 docker compose up --build
@@ -84,8 +85,8 @@ docker compose up --build
 ### Local dev without Docker
 
 ```bash
-# Terminal 1 — database + API
-docker compose up postgres-dev api
+# Terminal 1 — search and API
+docker compose up opensearch api
 
 # Terminal 2 — frontend
 cd frontend
@@ -93,16 +94,14 @@ npm install
 npm run dev
 ```
 
-Set in `frontend/.env.local`:
+Set in `frontend/.env.local` (copy from `frontend/.env.example`). Next.js does **not** read the repo root `.env` when you run `npm run dev` from `frontend/`:
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-NEXT_PUBLIC_ALLOW_MOCK_AUTH=true
+cp frontend/.env.example frontend/.env.local
+# then edit frontend/.env.local with your Supabase values
 ```
 
-Run Supabase migrations (`backend/migrations/supabase-migration.sql`, then `backend/migrations/supabase-chat-search-migration.sql`) when using Supabase-hosted Postgres.
+If you previously applied the old pgvector hybrid-search migration, run `backend/migrations/supabase-chat-search-migration.sql` to drop the unused RPC and indexes.
 
 ---
 
@@ -125,7 +124,7 @@ NEXT_PUBLIC_ALLOW_MOCK_AUTH=false
 SUPABASE_JWT_SECRET=your-jwt-secret
 ```
 
-Point `DATABASE_URL` at Supabase PostgreSQL so `user_id` values match authenticated users.
+Set `DATABASE_URL` in `.env` to your Supabase PostgreSQL URI so `user_id` values match authenticated users.
 
 ---
 

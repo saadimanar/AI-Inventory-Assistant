@@ -24,9 +24,6 @@ from opensearch_hybrid import (
     initialize_opensearch,
 )
 
-EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIM = 1536
-
 
 def create_db_engine() -> Engine:
     database_url = os.environ.get("DATABASE_URL")
@@ -69,26 +66,6 @@ def get_openai_client() -> OpenAI:
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not set")
     return OpenAI(api_key=api_key)
-
-
-def create_embedding(client: OpenAI, input_text: str) -> list[float]:
-    trimmed = (input_text or "").strip()
-    if not trimmed:
-        return [0.0] * EMBEDDING_DIM
-    response = client.embeddings.create(model=EMBEDDING_MODEL, input=trimmed[:8000])
-    embedding = response.data[0].embedding
-    if len(embedding) != EMBEDDING_DIM:
-        raise HTTPException(status_code=500, detail="Invalid embedding dimensions")
-    return embedding
-
-
-def embedding_to_pgvector(embedding: list[float]) -> str:
-    return "[" + ",".join(str(v) for v in embedding) + "]"
-
-
-def build_search_text(name: str, description: str, tags: list[str]) -> str:
-    parts = [name.strip(), description.strip(), *tags]
-    return " ".join(p for p in parts if p).strip()
 
 
 def row_to_item_json(row: Any) -> dict[str, Any]:
@@ -330,18 +307,15 @@ def create_item(
 ) -> dict[str, Any]:
     user_id = user.user_id
     client = get_openai_client()
-    embedding = create_embedding(client, body.description)
-    search_text = build_search_text(body.name, body.description, body.tags)
-    embedding_str = embedding_to_pgvector(embedding)
 
     sql = text(
         """
         INSERT INTO items (
           name, description, quantity, min_quantity, price, sku,
-          folder_id, tags, image_url, user_id, search_text, embedding
+          folder_id, tags, image_url, user_id
         ) VALUES (
           :name, :description, :quantity, :min_quantity, :price, :sku,
-          :folder_id, :tags, :image_url, :user_id, :search_text, CAST(:embedding AS vector(1536))
+          :folder_id, :tags, :image_url, :user_id
         )
         RETURNING *
         """
@@ -361,8 +335,6 @@ def create_item(
                 "tags": body.tags,
                 "image_url": body.image_url,
                 "user_id": user_id,
-                "search_text": search_text,
-                "embedding": embedding_str,
             },
         ).fetchone()
 
@@ -476,40 +448,18 @@ def delete_item(
 
 
 @app.post("/api/items/{item_id}/embedding")
-def refresh_item_embedding(
+def refresh_item_search_index(
     item_id: str,
     user: AuthUser = Depends(authenticate_request),
 ) -> dict[str, bool]:
     user_id = user.user_id
     select_sql = text(
-        "SELECT id, name, description, tags FROM items WHERE id = :id AND user_id = :user_id"
+        "SELECT id, name, description FROM items WHERE id = :id AND user_id = :user_id"
     )
     with engine.connect() as conn:
         row = conn.execute(select_sql, {"id": item_id, "user_id": user_id}).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Item not found")
-
-    search_text = build_search_text(row.name or "", row.description or "", list(row.tags or []))
-    client = get_openai_client()
-    embedding = create_embedding(client, search_text)
-    embedding_str = embedding_to_pgvector(embedding)
-
-    update_sql = text(
-        """
-        UPDATE items SET search_text = :search_text, embedding = CAST(:embedding AS vector(1536))
-        WHERE id = :id AND user_id = :user_id
-        """
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            update_sql,
-            {
-                "search_text": search_text,
-                "embedding": embedding_str,
-                "id": item_id,
-                "user_id": user_id,
-            },
-        )
 
     try:
         ingest_item(
@@ -517,7 +467,7 @@ def refresh_item_embedding(
             name=row.name or "",
             description=row.description or "",
             user_id=user_id,
-            openai_client=client,
+            openai_client=get_openai_client(),
         )
     except Exception:
         raise HTTPException(

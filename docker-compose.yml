@@ -1,16 +1,4 @@
 services:
-  postgres-dev:
-    image: pgvector/pgvector:pg16
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: inventory_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: local_dev_password
-    volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-
   opensearch:
     image: opensearchproject/opensearch:2.19.1
     ports:
@@ -36,12 +24,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      postgres-dev:
-        condition: service_started
       opensearch:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:local_dev_password@postgres-dev:5432/inventory_db
+      DATABASE_URL: ${DATABASE_URL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENSEARCH_URL: http://opensearch:9200
       SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
@@ -71,5 +57,4 @@ services:
       NEXT_PUBLIC_ALLOW_MOCK_AUTH: "true"
 
 volumes:
-  postgres_dev_data:
   opensearch_data:

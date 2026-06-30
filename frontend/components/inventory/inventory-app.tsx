@@ -249,7 +249,7 @@ export function InventoryApp() {
         savedId = created.id
       }
       await loadData()
-      // Update search index (embedding + search_text) after every create/update so AI search works
+      // Refresh OpenSearch index after every create/update so AI search stays in sync
       refreshItemEmbedding(savedId).catch((err) => {
         if (process.env.NODE_ENV === "development") {
           console.warn("[inventory] Search index update failed for item", savedId, err)
