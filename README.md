@@ -8,7 +8,7 @@
 
 ## Live Demo
 
-**[https://www.inventorygent.com/auth/login](https://www.inventorygent.com/auth/login)**
+**[https://www.inventorygent.com/auth/login](https://www.inventorygent.com)**
 
 Create a free account to explore the dashboard, manage items and folders, and try the AI search at `/ai-search`. Ask questions like *"items under $50"*, *"low stock items"*, or *"wireless headphones"* to see hybrid search in action.
 
