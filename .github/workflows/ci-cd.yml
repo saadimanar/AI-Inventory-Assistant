@@ -1,0 +1,129 @@
+name: Inventory App CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # -----------------------------------------------------------------
+  # JOB 1: Continuous Integration (Test & Build Check)
+  # -----------------------------------------------------------------
+  continuous-integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Uses Node 20 runtime environment
+          cache: 'npm'       # Caches node_modules for faster execution
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Optional: Uncomment if you use ESLint/Prettier code styling tools
+      # - name: Run Linters
+      #   run: npm run lint
+
+      # Optional: Highly recommended for testing your hybrid search algorithms
+      # - name: Run Tests
+      #   run: npm test
+
+      # Makes sure the application compiles completely without typescript or build errors
+      
+      - name: Build Application Check
+        working-directory: frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: https://inventorygent.com
+
+  # -----------------------------------------------------------------
+  # JOB 2: Continuous Deployment (Vercel Frontend + AWS Backend)
+  # -----------------------------------------------------------------
+  continuous-deployment:
+    needs: continuous-integration
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1                  # Update to your specific AWS region if different
+      ECR_REPOSITORY: inventory-backend      # The exact name of your AWS ECR private repository
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- STEP A: VERCEL FRONTEND DEPLOYMENT ---
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        working-directory: frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts (Production)
+        working-directory: frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Project Artifacts to Vercel
+        working-directory: frontend
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # --- STEP B: AWS DOCKER IMAGE BUILD & ECR PUSH ---
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Automatically authenticates the runner environment with your secure AWS registry
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Docker Image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: latest
+        run: |
+          # Build the backend Docker container from the backend/ directory (monorepo layout)
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          
+          # Push the fresh container up to AWS ECR warehouse
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      # --- STEP C: SSH INTO EC2 & UPDATE CONTAINER RUNTIME ---
+      - name: SSH into EC2 and Restart Container
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu # Change to 'ec2-user' if you are using an Amazon Linux AMI
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            # Authenticate the EC2 instance shell directly with ECR using its attached IAM Profile
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            
+            # Fetch the newest image code built in Step B
+            docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            
+            # Stop and tear down the old running instance container safely (ignoring error codes if missing)
+            docker stop inventory-backend-container || true
+            docker rm inventory-backend-container || true
+            
+            # Run the new container environment matching the local OpenSearch setup via host network
+            docker run -d \
+              --name inventory-backend-container \
+              --network="host" \
+              --restart always \
+              -e DATABASE_URL="${{ secrets.PRODUCTION_DB_URL }}" \
+              -e OPENSEARCH_NODE="${{ secrets.PRODUCTION_OPENSEARCH_NODE }}" \
+              ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
