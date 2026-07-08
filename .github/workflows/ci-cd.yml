@@ -52,7 +52,7 @@ jobs:
 
     env:
       AWS_REGION: us-east-1                  
-      ECR_REPOSITORY: inventory-backend      
+      ECR_REPOSITORY: inventory-api     
 
     steps:
       - name: Checkout Code
