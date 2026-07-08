@@ -15,13 +15,13 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2 # Updated to remove Node deprecation warning
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Uses Node 20 runtime environment
-          cache: 'npm'       # Caches node_modules for faster execution
+          node-version: '24' # Upgraded run environment to modern Node 24 runtime
+          cache: 'npm'       
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Dependencies
@@ -36,8 +36,6 @@ jobs:
       # - name: Run Tests
       #   run: npm test
 
-      # Makes sure the application compiles completely without typescript or build errors
-      
       - name: Build Application Check
         working-directory: frontend
         run: npm run build
@@ -53,12 +51,12 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      AWS_REGION: us-east-1                  # Update to your specific AWS region if different
-      ECR_REPOSITORY: inventory-backend      # The exact name of your AWS ECR private repository
+      AWS_REGION: us-east-1                  
+      ECR_REPOSITORY: inventory-backend      
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2 # Updated to remove Node deprecation warning
 
       # --- STEP A: VERCEL FRONTEND DEPLOYMENT ---
       - name: Install Vercel CLI
@@ -78,13 +76,12 @@ jobs:
 
       # --- STEP B: AWS DOCKER IMAGE BUILD & ECR PUSH ---
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.1.0 # Updated to eliminate deprecation warning
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Automatically authenticates the runner environment with your secure AWS registry
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -106,7 +103,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ubuntu # Change to 'ec2-user' if you are using an Amazon Linux AMI
+          username: ubuntu 
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             # Authenticate the EC2 instance shell directly with ECR using its attached IAM Profile
@@ -115,7 +112,7 @@ jobs:
             # Fetch the newest image code built in Step B
             docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
             
-            # Stop and tear down the old running instance container safely (ignoring error codes if missing)
+            # Stop and tear down the old running instance container safely
             docker stop inventory-backend-container || true
             docker rm inventory-backend-container || true
             
