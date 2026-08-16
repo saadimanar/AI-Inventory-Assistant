@@ -127,12 +127,12 @@ jobs:
             docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
             
             # Stop and tear down the old running instance container safely
-            docker stop inventory-backend-container || true
-            docker rm inventory-backend-container || true
+            docker stop inventory-api || true
+            docker rm inventory-api || true
             
             # Run the new container environment matching the local OpenSearch setup via host network
             docker run -d \
-              --name inventory-backend-container \
+              --name inventory-api \
               --network="host" \
               --restart always \
               -e DATABASE_URL="${{ secrets.PRODUCTION_DB_URL }}" \
