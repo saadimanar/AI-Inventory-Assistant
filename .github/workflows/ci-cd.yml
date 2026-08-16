@@ -86,13 +86,27 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # QEMU is required so the AMD64 GitHub runner can build a linux/arm64 image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Build, Tag, and Push Docker Image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: latest
         run: |
           # Build the backend Docker container from the backend/ directory (monorepo layout)
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker build --platform linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+
+          # Fail the job if the image is not ARM64 (would cause exec format error on EC2)
+          ARCH=$(docker image inspect $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --format '{{.Architecture}}')
+          echo "Built image architecture: $ARCH"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "ERROR: Expected arm64 image for EC2, got '$ARCH'"
+            exit 1
+          fi
           
           # Push the fresh container up to AWS ECR warehouse
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
