@@ -142,7 +142,7 @@ jobs:
               -e DATABASE_URL="${{ secrets.PRODUCTION_DB_URL }}" \
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
               -e OPENSEARCH_URL="http://inventory-opensearch:9200" \
-              -e SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
+              -e SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
               -e SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               -e ALLOW_MOCK_AUTH="false" \
               -e CORS_ORIGINS="https://www.inventorygent.com,https://inventorygent.com,https://ai-inventory-assistant-frontend.vercel.app" \
