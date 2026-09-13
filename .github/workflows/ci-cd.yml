@@ -120,26 +120,30 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            # Authenticate the EC2 instance shell directly with ECR using its attached IAM Profile
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            
-            # Fetch the newest image code built in Step B
-            docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-            
-            # Stop and tear down the old running instance container safely
-            docker stop inventory-api || true
-            docker rm inventory-api || true
-            
-            # Run the new container environment matching the local OpenSearch setup via host network
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} \
+              | docker login \
+                --username AWS \
+                --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+            docker pull \
+              ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+
+            # Remove the current API container.
+            docker rm -f inventory-api || true
+
+            # Remove the legacy backend container that caused the port conflict.
+            docker rm -f inventory-backend-container || true
+
             docker run -d \
               --name inventory-api \
-              --network="host" \
+              --network app_default \
               --restart always \
+              -p 127.0.0.1:8000:8000 \
               -e DATABASE_URL="${{ secrets.PRODUCTION_DB_URL }}" \
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-              -e OPENSEARCH_URL="http://localhost:9200" \
+              -e OPENSEARCH_URL="http://inventory-opensearch:9200" \
               -e SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
               -e SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
               -e ALLOW_MOCK_AUTH="false" \
-              -e CORS_ORIGINS="https://www.inventorygent.com,https://ai-inventory-assistant-frontend.vercel.app" \
+              -e CORS_ORIGINS="https://www.inventorygent.com,https://inventorygent.com,https://ai-inventory-assistant-frontend.vercel.app" \
               ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
