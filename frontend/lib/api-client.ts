@@ -159,12 +159,6 @@ export async function deleteItem(id: string): Promise<boolean> {
   return data.ok
 }
 
-export async function refreshItemEmbedding(itemId: string): Promise<void> {
-  await apiFetch<{ ok: boolean }>(`/api/items/${itemId}/embedding`, {
-    method: "POST",
-  })
-}
-
 export async function addFolder(
   folder: Omit<Folder, "id" | "createdAt" | "itemCount">
 ): Promise<Folder> {

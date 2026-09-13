@@ -18,6 +18,9 @@ cd AI-Inventory-Assistant-AWS
 ```
 
 1. Create a Supabase project and run `backend/migrations/supabase-migration.sql` in the SQL editor.
+   Do **not** run `backend/migrations/supabase-chat-search-migration.sql` during setup. That file is a
+   one-time production cleanup of leftover `search_text` / `embedding` columns and must be applied
+   manually after the new application code is deployed. See **Legacy column cleanup** below.
 2. Copy Project URL, anon key, and JWT secret from **Project Settings → API**.
 3. Add redirect URLs under **Authentication → URL Configuration**: `http://localhost:3000/auth/callback` and `https://www.inventorygent.com/auth/callback`.
 
@@ -96,3 +99,19 @@ NEXT_PUBLIC_ALLOW_MOCK_AUTH=false
 SUPABASE_JWT_SECRET=<your-jwt-secret>
 SUPABASE_URL=https://<ref>.supabase.co
 ```
+
+## Legacy column cleanup (manual)
+
+`backend/migrations/supabase-chat-search-migration.sql` drops leftover Postgres hybrid-search
+artifacts (`search_items_hybrid`, `search_text`, `embedding`). It is **not** run by Docker,
+container startup, GitHub Actions, or the EC2 deploy script.
+
+Apply it only after the API that no longer reads those columns is live:
+
+1. Back up the `items` table in Supabase (Table Editor → Export, or `pg_dump`).
+2. Deploy application code and verify create, update, delete, and search.
+3. In the Supabase Dashboard open **SQL Editor**, paste the contents of
+   `backend/migrations/supabase-chat-search-migration.sql`, and run it.
+4. Confirm `/health`, item CRUD, and AI search still work.
+
+Do not put database credentials in the SQL file or in CI logs. Use the Dashboard session.

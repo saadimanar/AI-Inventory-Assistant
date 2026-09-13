@@ -31,7 +31,6 @@ import {
   updateFolder,
   deleteFolder,
   getCurrentUserDisplayName,
-  refreshItemEmbedding,
 } from "@/lib/inventory-store"
 import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed"
 
@@ -237,24 +236,15 @@ export function InventoryApp() {
 
   const handleSaveItem = async (data: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">) => {
     try {
-      let savedId: string
       if (editingItem) {
         const updated = await updateItem(editingItem.id, data)
         if (updated && selectedItem?.id === editingItem.id) {
           setSelectedItem(updated)
         }
-        savedId = editingItem.id
       } else {
-        const created = await addItem(data)
-        savedId = created.id
+        await addItem(data)
       }
       await loadData()
-      // Refresh OpenSearch index after every create/update so AI search stays in sync
-      refreshItemEmbedding(savedId).catch((err) => {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[inventory] Search index update failed for item", savedId, err)
-        }
-      })
     } catch (error) {
       console.error("Error saving item:", error)
       toast.error(error instanceof Error ? error.message : "Failed to save item")

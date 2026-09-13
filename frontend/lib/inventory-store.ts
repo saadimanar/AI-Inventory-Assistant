@@ -13,6 +13,5 @@ export {
   addFolder,
   updateFolder,
   deleteFolder,
-  refreshItemEmbedding,
   clearSession,
 } from "@/lib/api-client"

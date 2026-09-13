@@ -33,9 +33,15 @@ env/
 .git/
 .github/
 
-# Docs and migrations (not needed at runtime)
+# Docs and migrations (not needed at runtime; never auto-run SQL in the image)
 migrations/
 *.md
+
+# Local tests and dev-only deps (not needed at runtime)
+tests/
+test_*.py
+pytest.ini
+requirements-dev.txt
 
 # Docker
 Dockerfile*
