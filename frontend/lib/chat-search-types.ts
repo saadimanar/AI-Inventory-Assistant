@@ -14,8 +14,6 @@ export interface ExtractedFilters {
   sku_contains?: string | null
   /** When true, return only items where quantity <= min_quantity (low stock). */
   low_stock_only?: boolean | null
-  /** Explicit product type head nouns extracted from the query (e.g. chair, headphones). */
-  product_nouns?: string[] | null
 }
 
 export interface ChatSearchResultItem {
