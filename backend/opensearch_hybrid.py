@@ -12,8 +12,89 @@ INDEX_NAME = "inventory_items"
 PIPELINE_NAME = "hybrid_search_pipeline"
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
-# Drop weak hybrid matches (loose vector neighbors) common in small inventories.
-HYBRID_SEARCH_MIN_SCORE = 0.05
+
+
+def _float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using default %s", name, raw, default)
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using default %s", name, raw, default)
+        return default
+
+
+# Drop weak hybrid matches after min-max combination.
+HYBRID_SEARCH_MIN_SCORE = _float_env("HYBRID_SEARCH_MIN_SCORE", 0.25)
+HYBRID_SEARCH_RELATIVE_SCORE_RATIO = _float_env(
+    "HYBRID_SEARCH_RELATIVE_SCORE_RATIO", 0.55
+)
+HYBRID_SEARCH_TEXT_WEIGHT = _float_env("HYBRID_SEARCH_TEXT_WEIGHT", 0.7)
+HYBRID_SEARCH_VECTOR_WEIGHT = _float_env("HYBRID_SEARCH_VECTOR_WEIGHT", 0.3)
+CHAT_SEARCH_CANDIDATE_LIMIT = _int_env("CHAT_SEARCH_CANDIDATE_LIMIT", 20)
+CHAT_SEARCH_RESULT_LIMIT = _int_env("CHAT_SEARCH_RESULT_LIMIT", 5)
+PHRASE_MATCH_SLOP = _int_env("HYBRID_SEARCH_PHRASE_SLOP", 3)
+PHRASE_MATCH_BOOST = _float_env("HYBRID_SEARCH_PHRASE_BOOST", 4.0)
+
+
+def search_debug_enabled() -> bool:
+    return os.environ.get("SEARCH_DEBUG", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _hybrid_weights() -> tuple[float, float]:
+    text_w = max(HYBRID_SEARCH_TEXT_WEIGHT, 0.0)
+    vector_w = max(HYBRID_SEARCH_VECTOR_WEIGHT, 0.0)
+    total = text_w + vector_w
+    if total <= 0:
+        return 0.7, 0.3
+    return text_w / total, vector_w / total
+
+
+def hybrid_pipeline_body() -> dict[str, Any]:
+    text_weight, vector_weight = _hybrid_weights()
+    return {
+        "description": "Normalize and combine hybrid text + vector scores",
+        "phase_results_processors": [
+            {
+                "normalization-processor": {
+                    "normalization": {"technique": "min_max"},
+                    "combination": {
+                        "technique": "arithmetic_mean",
+                        "parameters": {"weights": [text_weight, vector_weight]},
+                    },
+                },
+            },
+        ],
+    }
+
+
+TAGS_MAPPING: dict[str, Any] = {
+    "type": "text",
+    "analyzer": "english",
+    "fields": {
+        "keyword": {
+            "type": "keyword",
+            "ignore_above": 256,
+        }
+    },
+}
 
 INDEX_BODY: dict[str, Any] = {
     "settings": {
@@ -24,6 +105,7 @@ INDEX_BODY: dict[str, Any] = {
             "id": {"type": "keyword"},
             "name": {"type": "text", "analyzer": "english"},
             "description": {"type": "text", "analyzer": "english"},
+            "tags": TAGS_MAPPING,
             "description_vector": {
                 "type": "knn_vector",
                 "dimension": EMBEDDING_DIM,
@@ -37,18 +119,6 @@ INDEX_BODY: dict[str, Any] = {
             "user_id": {"type": "keyword"},
         },
     },
-}
-
-PIPELINE_BODY: dict[str, Any] = {
-    "description": "Normalize and combine hybrid text + vector scores",
-    "phase_results_processors": [
-        {
-            "normalization-processor": {
-                "normalization": {"technique": "min_max"},
-                "combination": {"technique": "arithmetic_mean"},
-            },
-        },
-    ],
 }
 
 
@@ -70,7 +140,11 @@ def get_opensearch_client() -> OpenSearch:
 
 def ensure_inventory_index(client: OpenSearch) -> None:
     if client.indices.exists(index=INDEX_NAME):
-        logger.info("OpenSearch index %s already exists", INDEX_NAME)
+        client.indices.put_mapping(
+            index=INDEX_NAME,
+            body={"properties": {"tags": TAGS_MAPPING}},
+        )
+        logger.info("OpenSearch index %s exists; ensured tags mapping", INDEX_NAME)
         return
     client.indices.create(index=INDEX_NAME, body=INDEX_BODY)
     logger.info("Created OpenSearch index %s", INDEX_NAME)
@@ -80,7 +154,7 @@ def ensure_hybrid_search_pipeline(client: OpenSearch) -> None:
     client.transport.perform_request(
         method="PUT",
         url=f"/_search/pipeline/{PIPELINE_NAME}",
-        body=PIPELINE_BODY,
+        body=hybrid_pipeline_body(),
     )
     logger.info("Provisioned search pipeline %s", PIPELINE_NAME)
 
@@ -115,6 +189,28 @@ def initialize_opensearch(
     ) from last_error
 
 
+def build_embedding_input(
+    name: str,
+    description: str,
+    tags: Optional[list[str]] = None,
+) -> str:
+    parts: list[str] = []
+    trimmed_name = (name or "").strip()
+    trimmed_description = (description or "").strip()
+    if trimmed_name:
+        parts.append(trimmed_name)
+    if trimmed_description:
+        parts.append(trimmed_description)
+    cleaned_tags = [
+        tag.strip()
+        for tag in (tags or [])
+        if isinstance(tag, str) and tag.strip()
+    ]
+    if cleaned_tags:
+        parts.append("Tags: " + ", ".join(cleaned_tags))
+    return "\n".join(parts)
+
+
 def create_description_embedding(client: OpenAI, description: str) -> list[float]:
     trimmed = (description or "").strip()
     if not trimmed:
@@ -136,15 +232,25 @@ def ingest_item(
     description: str,
     user_id: str,
     openai_client: OpenAI,
+    tags: Optional[list[str]] = None,
     opensearch_client: Optional[OpenSearch] = None,
 ) -> None:
-    """Embed the description and index the item in OpenSearch."""
+    """Embed name + description + tags and index the item in OpenSearch."""
     os_client = opensearch_client or get_opensearch_client()
-    vector = create_description_embedding(openai_client, description)
+    tag_list = [
+        tag.strip()
+        for tag in (tags or [])
+        if isinstance(tag, str) and tag.strip()
+    ]
+    vector = create_description_embedding(
+        openai_client,
+        build_embedding_input(name, description, tag_list),
+    )
     document = {
         "id": item_id,
-        "name": name,
-        "description": description,
+        "name": name or "",
+        "description": description or "",
+        "tags": tag_list,
         "description_vector": vector,
         "user_id": user_id,
     }
@@ -162,17 +268,66 @@ def delete_item_from_index(
         return
 
 
+def _product_noun_clause(noun: str) -> dict[str, Any]:
+    """Require the noun to match name, tags, or description via index analyzers."""
+    return {
+        "multi_match": {
+            "query": noun,
+            "fields": ["name", "tags", "description"],
+            "operator": "and",
+            "type": "best_fields",
+        }
+    }
+
+
+def _retrieval_filter_clauses(
+    user_id: str,
+    product_nouns: Optional[list[str]] = None,
+) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = [{"term": {"user_id": user_id}}]
+    nouns = [
+        noun.strip()
+        for noun in (product_nouns or [])
+        if isinstance(noun, str) and noun.strip()
+    ]
+    for noun in nouns:
+        clauses.append(_product_noun_clause(noun))
+    return clauses
+
+
+def apply_hybrid_score_cutoffs(
+    items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep hits that clear the absolute floor and stay close to the top score."""
+    qualified = [
+        item
+        for item in items
+        if float(item.get("score") or 0.0) >= HYBRID_SEARCH_MIN_SCORE
+    ]
+    if not qualified:
+        return []
+    top_score = max(float(item.get("score") or 0.0) for item in qualified)
+    relative_floor = top_score * HYBRID_SEARCH_RELATIVE_SCORE_RATIO
+    return [
+        item
+        for item in qualified
+        if float(item.get("score") or 0.0) >= relative_floor
+    ]
+
+
 def hybrid_search_descriptions(
     *,
     query_text: str,
     user_id: str,
     limit: int = 20,
+    product_nouns: Optional[list[str]] = None,
+    phrase_text: Optional[str] = None,
     openai_client: OpenAI,
     opensearch_client: Optional[OpenSearch] = None,
 ) -> list[dict[str, Any]]:
     """
-    Run hybrid search: fuzzy match on description + kNN on description_vector.
-    Uses the hybrid_search_pipeline for min_max + arithmetic_mean score blending.
+    Hybrid search: boosted lexical match on name/tags/description + kNN.
+    Tenant and optional product-noun constraints are applied during retrieval.
     """
     trimmed = (query_text or "").strip()
     if len(trimmed) < 2:
@@ -180,32 +335,57 @@ def hybrid_search_descriptions(
 
     os_client = opensearch_client or get_opensearch_client()
     query_vector = create_description_embedding(openai_client, trimmed)
+    filter_clauses = _retrieval_filter_clauses(user_id, product_nouns)
+    retrieval_filter: dict[str, Any] = {"bool": {"filter": filter_clauses}}
+
+    lexical_bool: dict[str, Any] = {
+        "bool": {
+            "filter": filter_clauses,
+            "must": [
+                {
+                    "multi_match": {
+                        "query": trimmed,
+                        "fields": ["name^5", "tags^4", "description^3"],
+                        "fuzziness": "AUTO",
+                        "type": "best_fields",
+                    }
+                }
+            ],
+        }
+    }
+    phrase = (phrase_text or "").strip()
+    if len(phrase) >= 2:
+        lexical_bool["bool"]["should"] = [
+            {
+                "match_phrase": {
+                    "description": {
+                        "query": phrase,
+                        "slop": PHRASE_MATCH_SLOP,
+                        "boost": PHRASE_MATCH_BOOST,
+                    }
+                }
+            }
+        ]
 
     search_body: dict[str, Any] = {
         "_source": {"exclude": ["description_vector"]},
         "size": limit,
-        "post_filter": {"term": {"user_id": user_id}},
+        "post_filter": retrieval_filter,
         "query": {
             "hybrid": {
                 "queries": [
-                    {
-                        "match": {
-                            "description": {
-                                "query": trimmed,
-                                "fuzziness": "AUTO",
-                            },
-                        },
-                    },
+                    lexical_bool,
                     {
                         "knn": {
                             "description_vector": {
                                 "vector": query_vector,
                                 "k": limit,
-                            },
-                        },
+                                "filter": retrieval_filter,
+                            }
+                        }
                     },
-                ],
-            },
+                ]
+            }
         },
     }
 

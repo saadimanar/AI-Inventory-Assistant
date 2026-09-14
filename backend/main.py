@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any, Optional
@@ -7,6 +8,7 @@ from chat_search import (
     build_applied_filters,
     extract_search_params,
     has_strong_structured_filters,
+    normalize_product_nouns,
 )
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,12 +19,18 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import QueuePool
 
 from opensearch_hybrid import (
-    HYBRID_SEARCH_MIN_SCORE,
+    CHAT_SEARCH_CANDIDATE_LIMIT,
+    CHAT_SEARCH_RESULT_LIMIT,
+    apply_hybrid_score_cutoffs,
     delete_item_from_index,
+    get_opensearch_client,
     hybrid_search_descriptions,
     ingest_item,
     initialize_opensearch,
+    search_debug_enabled,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_db_engine() -> Engine:
@@ -57,8 +65,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-CHAT_SEARCH_TOP_N = 20
 
 
 def get_openai_client() -> OpenAI:
@@ -144,6 +150,7 @@ class SearchRequest(BaseModel):
     semantic_query: Optional[str] = None
     fts_query: Optional[str] = None
     filter_only: bool = False
+    product_nouns: Optional[list[str]] = None
     filters: SearchFilters = Field(default_factory=SearchFilters)
 
 
@@ -164,8 +171,12 @@ class ChatSearchRequest(BaseModel):
     applied_filters: Optional[dict[str, Any]] = None
 
 
-def to_chat_result_item(item: dict[str, Any]) -> dict[str, Any]:
-    return {
+def to_chat_result_item(
+    item: dict[str, Any],
+    *,
+    include_score: bool = False,
+) -> dict[str, Any]:
+    result = {
         "id": item["id"],
         "name": item["name"],
         "description": item["description"],
@@ -178,8 +189,28 @@ def to_chat_result_item(item: dict[str, Any]) -> dict[str, Any]:
         "imageUrl": item.get("image_url"),
         "createdAt": item.get("created_at"),
         "updatedAt": item.get("updated_at"),
-        "score": item.get("score"),
     }
+    if include_score and item.get("score") is not None:
+        result["score"] = item["score"]
+    return result
+
+
+def _ingest_item_row(
+    row: Any,
+    user_id: str,
+    *,
+    openai_client: Optional[OpenAI] = None,
+    opensearch_client: Any = None,
+) -> None:
+    ingest_item(
+        item_id=str(row.id),
+        name=row.name or "",
+        description=row.description or "",
+        tags=list(row.tags or []),
+        user_id=user_id,
+        openai_client=openai_client or get_openai_client(),
+        opensearch_client=opensearch_client,
+    )
 
 
 @app.get("/health")
@@ -249,9 +280,11 @@ def chat_search(
 
     semantic_query = (extraction.get("semantic_query") or "").strip()
     filters = extraction.get("filters") or {}
+    product_nouns = normalize_product_nouns(extraction.get("product_nouns"))
     strong_filters = has_strong_structured_filters(filters)
+    has_product_nouns = len(product_nouns) > 0
 
-    if len(semantic_query) < 2 and not strong_filters:
+    if len(semantic_query) < 2 and not strong_filters and not has_product_nouns:
         return {
             "type": "clarify",
             "question": (
@@ -261,29 +294,35 @@ def chat_search(
             ),
         }
 
-    use_filter_only = len(semantic_query) < 2 and strong_filters
-    fts_query_for_rpc = (
-        None
-        if use_filter_only
-        else semantic_query
-        if len(semantic_query) >= 2
-        else None
+    use_filter_only = (
+        len(semantic_query) < 2 and strong_filters and not has_product_nouns
     )
+    fts_query_for_rpc = None
+    if not use_filter_only:
+        if len(semantic_query) >= 2:
+            fts_query_for_rpc = semantic_query
+        elif has_product_nouns:
+            fts_query_for_rpc = " ".join(product_nouns)
 
-    if not use_filter_only and not fts_query_for_rpc and len(semantic_query) < 2:
+    if (
+        not use_filter_only
+        and not fts_query_for_rpc
+        and len(semantic_query) < 2
+        and not has_product_nouns
+    ):
         return {
             "type": "results",
             "items": [],
-            "appliedFilters": build_applied_filters(filters),
+            "appliedFilters": build_applied_filters(filters, product_nouns),
         }
 
     search_body = SearchRequest(
         query=message,
-        user_id=user_id,
-        limit=CHAT_SEARCH_TOP_N,
-        semantic_query=semantic_query,
+        limit=CHAT_SEARCH_CANDIDATE_LIMIT,
+        semantic_query=semantic_query or None,
         fts_query=fts_query_for_rpc,
         filter_only=use_filter_only,
+        product_nouns=product_nouns or None,
         filters=SearchFilters(
             **{
                 k: v
@@ -292,12 +331,21 @@ def chat_search(
             }
         ),
     )
-    raw_items = _run_hybrid_search(user_id, search_body)
-    return {
+    raw_items = _run_hybrid_search(
+        user_id,
+        search_body,
+        candidate_limit=CHAT_SEARCH_CANDIDATE_LIMIT,
+        result_limit=CHAT_SEARCH_RESULT_LIMIT,
+    )
+    include_score = search_debug_enabled()
+    payload: dict[str, Any] = {
         "type": "results",
-        "items": [to_chat_result_item(i) for i in raw_items],
-        "appliedFilters": build_applied_filters(filters),
+        "items": [
+            to_chat_result_item(i, include_score=include_score) for i in raw_items
+        ],
+        "appliedFilters": build_applied_filters(filters, product_nouns),
     }
+    return payload
 
 
 @app.post("/api/items")
@@ -342,13 +390,7 @@ def create_item(
         raise HTTPException(status_code=500, detail="Failed to create item")
 
     try:
-        ingest_item(
-            item_id=str(row.id),
-            name=row.name,
-            description=row.description or "",
-            user_id=user_id,
-            openai_client=client,
-        )
+        _ingest_item_row(row, user_id, openai_client=client)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to index item in OpenSearch")
 
@@ -409,16 +451,9 @@ def update_item(
     if not row:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    if "name" in updates or "description" in updates:
+    if "name" in updates or "description" in updates or "tags" in updates:
         try:
-            client = get_openai_client()
-            ingest_item(
-                item_id=str(row.id),
-                name=row.name,
-                description=row.description or "",
-                user_id=user_id,
-                openai_client=client,
-            )
+            _ingest_item_row(row, user_id)
         except Exception:
             raise HTTPException(
                 status_code=500, detail="Failed to update item in OpenSearch"
@@ -454,7 +489,7 @@ def refresh_item_search_index(
 ) -> dict[str, bool]:
     user_id = user.user_id
     select_sql = text(
-        "SELECT id, name, description FROM items WHERE id = :id AND user_id = :user_id"
+        "SELECT id, name, description, tags FROM items WHERE id = :id AND user_id = :user_id"
     )
     with engine.connect() as conn:
         row = conn.execute(select_sql, {"id": item_id, "user_id": user_id}).fetchone()
@@ -462,19 +497,50 @@ def refresh_item_search_index(
         raise HTTPException(status_code=404, detail="Item not found")
 
     try:
-        ingest_item(
-            item_id=item_id,
-            name=row.name or "",
-            description=row.description or "",
-            user_id=user_id,
-            openai_client=get_openai_client(),
-        )
+        _ingest_item_row(row, user_id)
     except Exception:
         raise HTTPException(
             status_code=500, detail="Failed to refresh item in OpenSearch"
         )
 
     return {"ok": True}
+
+
+@app.post("/api/items/reindex")
+def reindex_current_user_items(
+    user: AuthUser = Depends(authenticate_request),
+) -> dict[str, Any]:
+    """Re-embed and upsert the authenticated user's items into OpenSearch."""
+    user_id = user.user_id
+    select_sql = text(
+        "SELECT id, name, description, tags FROM items WHERE user_id = :user_id"
+    )
+    with engine.connect() as conn:
+        rows = conn.execute(select_sql, {"user_id": user_id}).fetchall()
+
+    openai_client = get_openai_client()
+    opensearch_client = get_opensearch_client()
+    indexed = 0
+    failed = 0
+    for row in rows:
+        try:
+            _ingest_item_row(
+                row,
+                user_id,
+                openai_client=openai_client,
+                opensearch_client=opensearch_client,
+            )
+            indexed += 1
+        except Exception:
+            failed += 1
+            logger.exception("Failed to reindex item %s for user %s", row.id, user_id)
+
+    return {
+        "ok": failed == 0,
+        "indexed": indexed,
+        "failed": failed,
+        "total": len(rows),
+    }
 
 
 @app.get("/api/folders")
@@ -674,36 +740,54 @@ def _fetch_items_by_ids(user_id: str, item_ids: list[str]) -> list[dict[str, Any
     return [row_to_item_json(r) for r in rows]
 
 
-def _run_hybrid_search(user_id: str, body: SearchRequest) -> list[dict[str, Any]]:
+def _run_hybrid_search(
+    user_id: str,
+    body: SearchRequest,
+    *,
+    candidate_limit: Optional[int] = None,
+    result_limit: Optional[int] = None,
+) -> list[dict[str, Any]]:
     semantic = (body.semantic_query or body.query or "").strip()
     fts_query = body.fts_query
     f = body.filters
+    product_nouns = normalize_product_nouns(body.product_nouns)
+    retrieve_limit = candidate_limit if candidate_limit is not None else body.limit
+    return_limit = result_limit if result_limit is not None else body.limit
 
-    if body.filter_only or (len(semantic) < 2 and not fts_query):
+    if body.filter_only or (
+        len(semantic) < 2 and not fts_query and not product_nouns
+    ):
         return _structured_search(
-            user_id, body.limit, f, semantic if len(semantic) >= 2 else None
+            user_id, return_limit, f, semantic if len(semantic) >= 2 else None
         )
 
-    query_text = (fts_query or semantic).strip()
+    query_parts: list[str] = []
+    query_parts.extend(product_nouns)
+    if fts_query and fts_query.strip():
+        query_parts.append(fts_query.strip())
+    elif len(semantic) >= 2:
+        query_parts.append(semantic)
+    elif (body.query or "").strip():
+        query_parts.append(body.query.strip())
+    query_text = " ".join(query_parts).strip()
     if len(query_text) < 2:
         return []
+
+    phrase_text = semantic if len(semantic) >= 2 else None
 
     client = get_openai_client()
     try:
         os_hits = hybrid_search_descriptions(
             query_text=query_text,
             user_id=user_id,
-            limit=body.limit,
+            limit=retrieve_limit,
+            product_nouns=product_nouns or None,
+            phrase_text=phrase_text,
             openai_client=client,
         )
     except Exception:
         raise HTTPException(status_code=500, detail="OpenSearch hybrid search failed")
 
-    if not os_hits:
-        return []
-
-    # Trim loose semantic/hybrid noise before loading full items from Postgres.
-    os_hits = [hit for hit in os_hits if hit["score"] >= HYBRID_SEARCH_MIN_SCORE]
     if not os_hits:
         return []
 
@@ -714,7 +798,8 @@ def _run_hybrid_search(user_id: str, body: SearchRequest) -> list[dict[str, Any]
     for item in items:
         item["score"] = score_by_id.get(item["id"])
     items = _apply_search_filters(items, f, body.keywords)
-    return items[: body.limit]
+    items = apply_hybrid_score_cutoffs(items)
+    return items[:return_limit]
 
 
 @app.post("/api/search")
